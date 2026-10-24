@@ -26,9 +26,8 @@ wheels/
 .coverage
 htmlcov/
 
-# CortexOS Local Storage & Snapshots
-.cortex/snapshots/
-.cortex/reports/
+# CortexOS Local Storage & Runtime Artifacts
+.cortex/
 cortex_memory.sqlite*
 *.lance
 kuzu_storage/
