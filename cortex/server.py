@@ -1,3 +1,4 @@
+import psutil
 import asyncio
 import json
 import os
@@ -16,6 +17,7 @@ import uvicorn
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from cortex.main import build_cortex_stack
+from cortex.embodiment.voice import voice_engine
 
 app = FastAPI(title="CortexOS Real-Time Cognitive Dashboard")
 app.add_middleware(
@@ -61,8 +63,22 @@ class CheckpointRestoreRequest(BaseModel):
     task_id: str
     label: Optional[str] = "pre"
 
+class TerminalRunRequest(BaseModel):
+    command: str
+    timeout: Optional[int] = 30
+
 class MediaControlRequest(BaseModel):
     command: str = "toggle"
+
+class VoiceSpeakRequest(BaseModel):
+    text: str
+    persona: Optional[str] = None
+
+class VoicePersonaRequest(BaseModel):
+    persona: str
+
+class VoiceToggleRequest(BaseModel):
+    enabled: bool
 
 
 HTML_DASHBOARD = r"""
@@ -131,14 +147,44 @@ HTML_DASHBOARD = r"""
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 24px;
+            padding: 0 20px;
             z-index: 20;
             box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
         }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .btn-side-toggle {
+            background: rgba(0, 229, 255, 0.12);
+            border: 1px solid var(--border-panel);
+            color: var(--accent-cyan);
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .btn-side-toggle:hover {
+            background: rgba(0, 229, 255, 0.25);
+            box-shadow: 0 0 12px rgba(0, 229, 255, 0.35);
+            transform: scale(1.05);
+        }
+        .btn-side-toggle.active {
+            background: rgba(0, 229, 255, 0.25);
+            border-color: var(--accent-cyan);
+        }
+
         .brand {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
             font-family: var(--font-display);
             font-weight: 700;
             font-size: 1.05rem;
@@ -265,7 +311,7 @@ HTML_DASHBOARD = r"""
         }
         .btn-panic:hover { background: rgba(239, 68, 68, 0.35); box-shadow: 0 0 16px rgba(239, 68, 68, 0.4); }
 
-        /* Main Workspace Layout */
+        /* Main Workspace Layout with Smooth Collapsible Sidebar */
         main {
             flex: 1;
             display: grid;
@@ -273,6 +319,18 @@ HTML_DASHBOARD = r"""
             overflow: hidden;
             position: relative;
             z-index: 10;
+            transition: grid-template-columns 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        main.sidebar-collapsed {
+            grid-template-columns: 0px 1fr !important;
+        }
+        main.sidebar-collapsed aside.nav-sidebar {
+            padding: 0;
+            overflow: hidden;
+            border-right: none;
+            opacity: 0;
+            pointer-events: none;
+            width: 0;
         }
 
         /* Sidebar Navigation */
@@ -286,6 +344,7 @@ HTML_DASHBOARD = r"""
             flex-direction: column;
             gap: 10px;
             z-index: 15;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .nav-btn {
             background: transparent;
@@ -856,7 +915,7 @@ HTML_DASHBOARD = r"""
             max-width: 320px;
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
         }
-        .filter-tags { display: flex; gap: 8px; }
+        .filter-tags { display: flex; gap: 8px; flex-wrap: wrap; }
         .filter-tag {
             background: rgba(18, 28, 51, 0.85);
             border: 1px solid var(--border-panel);
@@ -897,6 +956,7 @@ HTML_DASHBOARD = r"""
             font-weight: 600;
             position: sticky;
             top: 0;
+            z-index: 2;
         }
         table.cortex-table td {
             padding: 10px 14px;
@@ -1119,6 +1179,224 @@ HTML_DASHBOARD = r"""
             transition: all 0.2s;
         }
         .btn-restore:hover { background: rgba(239, 68, 68, 0.35); }
+
+        /* ==================== 6. EXECUTION & DAEMONS PANE STYLES ==================== */
+        .exec-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-panel);
+            border-radius: 12px;
+            padding: 22px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            backdrop-filter: blur(14px);
+        }
+        /* 9-Stage Pipeline Stepper */
+        .pipeline-stepper {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+        .pipe-stage-card {
+            background: rgba(8, 12, 24, 0.7);
+            border: 1px solid var(--border-panel);
+            border-radius: 10px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+        .pipe-stage-card:hover {
+            border-color: var(--accent-cyan);
+            background: rgba(18, 28, 51, 0.85);
+            box-shadow: 0 4px 16px rgba(0, 229, 255, 0.15);
+        }
+        .pipe-stage-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .pipe-num {
+            font-family: var(--font-display);
+            font-size: 0.76rem;
+            color: var(--accent-cyan);
+            font-weight: 700;
+        }
+        .pipe-status-pill {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .pipe-status-active { background: rgba(0, 229, 255, 0.2); color: var(--accent-cyan); }
+        .pipe-status-completed { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .pipe-status-ready { background: rgba(192, 132, 252, 0.2); color: var(--accent-purple); }
+        .pipe-status-nominal { background: rgba(56, 189, 248, 0.2); color: var(--accent-blue); }
+        .pipe-status-enforcing { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
+        .pipe-status-isolated { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); }
+        .pipe-status-pinned { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .pipe-status-synchronized { background: rgba(0, 229, 255, 0.2); color: var(--accent-cyan); }
+        .pipe-title {
+            font-family: var(--font-mono);
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .pipe-comp {
+            font-size: 0.74rem;
+            color: var(--accent-blue);
+            font-family: var(--font-mono);
+        }
+        .pipe-desc {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            line-height: 1.4;
+        }
+
+        /* Live Terminal Box */
+        .terminal-quick-cmds {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .term-preset-btn {
+            background: rgba(18, 28, 51, 0.85);
+            border: 1px solid var(--border-panel);
+            color: var(--text-dim);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .term-preset-btn:hover {
+            color: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+            background: rgba(0, 229, 255, 0.12);
+        }
+        .terminal-input-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(6, 9, 17, 0.95);
+            border: 1px solid var(--border-panel);
+            border-radius: 8px;
+            padding: 8px 14px;
+        }
+        .term-prompt {
+            font-family: var(--font-mono);
+            font-size: 0.84rem;
+            color: var(--accent-green);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .terminal-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: var(--font-mono);
+            font-size: 0.86rem;
+            outline: none;
+        }
+        .terminal-screen {
+            background: #000;
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            max-height: 260px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9);
+        }
+        .term-line-cmd { color: var(--accent-cyan); font-weight: 700; margin-top: 6px; }
+        .term-line-stdout { color: var(--accent-green); }
+        .term-line-stderr { color: var(--accent-red); }
+        .term-line-meta { color: var(--text-dim); font-size: 0.74rem; margin-top: 4px; }
+
+        /* Daemons Grid */
+        .daemons-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 18px;
+        }
+        .daemon-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-panel);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            backdrop-filter: blur(12px);
+        }
+        .daemon-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .daemon-name {
+            font-family: var(--font-mono);
+            font-size: 0.84rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+        .daemon-badge {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+        }
+        .daemon-running { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .daemon-nominal { background: rgba(0, 229, 255, 0.2); color: var(--accent-cyan); }
+        .daemon-paused { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
+        .daemon-metric {
+            display: flex;
+            justify-content: space-between;
+            font-family: var(--font-mono);
+            font-size: 0.76rem;
+            color: var(--text-dim);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            padding-bottom: 4px;
+        }
+        .daemon-metric span.val { color: var(--text-main); font-weight: 600; }
+
+        /* Process Search Input */
+        .proc-search-input {
+            background: rgba(6, 9, 17, 0.85);
+            border: 1px solid var(--border-panel);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            outline: none;
+            width: 200px;
+        }
+        .proc-search-input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.25); }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 1080px) {
+            .pipeline-stepper { grid-template-columns: repeat(2, 1fr); }
+            .daemons-grid { grid-template-columns: repeat(2, 1fr); }
+            .mem-grid, .skills-grid, .gov-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            main { grid-template-columns: 1fr; }
+            aside.nav-sidebar { display: none; }
+            .pipeline-stepper { grid-template-columns: 1fr; }
+            .daemons-grid { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -1126,12 +1404,15 @@ HTML_DASHBOARD = r"""
     <canvas id="webgl-bg-canvas"></canvas>
 
     <header>
-        <div class="brand">
-            <div class="conn-pill" id="conn-pill">
-                <div class="pulse-dot"></div>
-                <span id="conn-text">SYNCED</span>
+        <div class="header-left">
+            <button class="btn-side-toggle" id="btn-side-toggle" onclick="toggleSidebar()" title="Toggle Navigation Sidebar (Ctrl+B)">☰</button>
+            <div class="brand">
+                <div class="conn-pill" id="conn-pill">
+                    <div class="pulse-dot"></div>
+                    <span id="conn-text">SYNCED</span>
+                </div>
+                <span>CORTEX-OS // COGNITIVE RUNTIME</span>
             </div>
-            <span>CORTEX-OS // COGNITIVE RUNTIME</span>
         </div>
         <div class="ticker-bar">
             <div class="ticker-item">TICK <span class="val" id="tick-id">#0</span></div>
@@ -1148,6 +1429,20 @@ HTML_DASHBOARD = r"""
                 <button onclick="controlMedia('previous', event)" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:0.75rem;" title="Previous track">⏮</button>
                 <button onclick="controlMedia('toggle', event)" style="background:transparent; border:none; color:var(--accent-cyan); cursor:pointer; font-size:0.85rem;" title="Play/Pause">⏯</button>
                 <button onclick="controlMedia('next', event)" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:0.75rem;" title="Next track">⏭</button>
+            </div>
+            <div class="ticker-item" id="ticker-voice" title="Neural Voice Persona & Instant Barge-In Control">
+                <span id="voice-status-icon">🎙️</span>
+                <select id="voice-persona-select" onchange="switchVoicePersona(this.value)" style="background:rgba(13,20,36,0.85); border:1px solid var(--border-panel); color:var(--accent-cyan); font-family:var(--font-mono); font-size:0.72rem; border-radius:4px; padding:2px 5px; outline:none; cursor:pointer;">
+                    <option value="jarvis">JARVIS (Baritone)</option>
+                    <option value="friday">Friday (Companion)</option>
+                    <option value="christopher">Christopher (Studio)</option>
+                    <option value="edith">Edith (Tactical)</option>
+                    <option value="neerja">Neerja (Indian EN)</option>
+                    <option value="jenny">Jenny (Warm)</option>
+                    <option value="guy">Guy (Direct)</option>
+                </select>
+                <button id="btn-voice-toggle" onclick="toggleVoiceSpeech()" style="background:transparent; border:none; color:var(--accent-cyan); cursor:pointer; font-size:0.85rem;" title="Toggle Speech Output">🔊</button>
+                <button id="btn-voice-bargein" onclick="bargeInStopVoice()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:var(--accent-red); cursor:pointer; font-size:0.68rem; font-weight:700; border-radius:3px; padding:2px 6px;" title="Instant Sub-10ms Barge-In (Stop Speaking)">HALT</button>
             </div>
             <button class="btn-ambient" id="btn-ambient" onclick="toggleAmbient()">AMBIENT: OFF</button>
             <button class="btn-sleep" onclick="triggerSleep()">DIGITAL SLEEP</button>
@@ -1178,9 +1473,13 @@ HTML_DASHBOARD = r"""
                 <span class="nav-label"><span class="icon">🛡️</span> Cedar Governance</span>
                 <span class="kbd-hint">^5</span>
             </button>
+            <button class="nav-btn" id="tab-execution" onclick="switchTab('execution')">
+                <span class="nav-label"><span class="icon">⚙️</span> Execution & Daemons</span>
+                <span class="kbd-hint">^6</span>
+            </button>
         </aside>
 
-        <!-- Main Content Area with 5 Interchangeable Views -->
+        <!-- Main Content Area with 6 Interchangeable Views -->
         <div class="content-area">
             
             <!-- PANE 1: COGNITIVE STAGE (Active Interactive Chat + Real-Time Telemetry Inspector) -->
@@ -1198,6 +1497,7 @@ HTML_DASHBOARD = r"""
                         <div class="quick-chip" onclick="quickPrompt('which applications are open')">📱 Open Applications</div>
                         <div class="quick-chip" onclick="quickPrompt('which song is being played')">🎵 Active Song</div>
                         <div class="quick-chip" onclick="quickPrompt('audit working tree')">🔍 Audit Git Tree</div>
+                        <div class="quick-chip" onclick="switchTab('execution')">⚙️ View Execution Pipeline</div>
                         <div class="quick-chip" onclick="triggerSleep()">💤 Digital Sleep</div>
                     </div>
 
@@ -1502,6 +1802,104 @@ HTML_DASHBOARD = r"""
                 </div>
             </div>
 
+            <!-- PANE 6: LIVE EXECUTION, DAEMONS & PIPELINE MONITOR -->
+            <div id="pane-execution" class="pane-scrollable">
+                <div class="pane-header">
+                    <div>
+                        <div class="pane-title"><span>⚙️</span> Live Execution, Daemons & Cognitive Pipeline Trace</div>
+                        <div class="pane-desc">Real-time terminal execution in governed sandbox, background daemon inspection, child process tree monitoring, and 9-stage cognitive pipeline flow.</div>
+                    </div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-action" onclick="loadExecutionPane()"><span>🔄</span> Refresh Telemetry</button>
+                        <button class="btn-action" onclick="clearTerminalScreen()"><span>🧹</span> Clear Terminal</button>
+                    </div>
+                </div>
+
+                <!-- 1. The 9-Stage Cognitive Pipeline Architecture Stepper -->
+                <div class="exec-card tilt-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--accent-cyan); display:flex; align-items:center; gap:8px;">
+                            <span>🔄</span> End-to-End Cognitive Execution Pipeline Architecture
+                        </h3>
+                        <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">Discrete Dynamical Flow (9 Verified Stages)</span>
+                    </div>
+                    <div class="pipeline-stepper" id="pipeline-stepper-box">
+                        <div style="grid-column: span 3; text-align:center; color:var(--text-dim); padding:20px;">Loading cognitive pipeline topology...</div>
+                    </div>
+                </div>
+
+                <!-- 2. Live Interactive Terminal & Subprocess Executor -->
+                <div class="exec-card tilt-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--accent-cyan); display:flex; align-items:center; gap:8px;">
+                            <span>💻</span> Live Sandboxed Terminal & Subprocess Runner
+                        </h3>
+                        <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">Cedar Governed | Shadow Checkpointed | Auto-Rollback</span>
+                    </div>
+                    <div class="terminal-quick-cmds">
+                        <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono); margin-right:4px;">Presets:</span>
+                        <button class="term-preset-btn" onclick="runPresetTerminal('python -c &quot;import psutil; print(psutil.virtual_memory())&quot;')">psutil.virtual_memory()</button>
+                        <button class="term-preset-btn" onclick="runPresetTerminal('git status')">git status</button>
+                        <button class="term-preset-btn" onclick="runPresetTerminal('python cortex/skills/library/system_telemetry_reporter.py')">system_telemetry_reporter</button>
+                        <button class="term-preset-btn" onclick="runPresetTerminal('python cortex/skills/library/process_resource_optimizer.py')">process_resource_optimizer</button>
+                        <button class="term-preset-btn" onclick="runPresetTerminal('dir')">dir</button>
+                    </div>
+                    <div class="terminal-input-bar">
+                        <span class="term-prompt">cortex@laptop:~$</span>
+                        <input type="text" class="terminal-input" id="terminal-cmd-input" placeholder="Enter shell or python command to execute inside sandbox..." onkeydown="if(event.key==='Enter') executeTerminalCommand()">
+                        <button class="btn-action" onclick="executeTerminalCommand()">▶ Run Command</button>
+                    </div>
+                    <div class="terminal-screen" id="terminal-screen-box">
+                        <div class="term-line" style="color:var(--text-dim);">[CortexOS Kernel Terminal Ready. Commands execute with shadow checkpoint refs/checkpoints/]</div>
+                    </div>
+                </div>
+
+                <!-- 3. Active Daemons & Background Workers Grid -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+                    <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                        <span>🤖</span> Active Background Daemons & Runtimes
+                    </h3>
+                    <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">4 Autonomous Supervisors</span>
+                </div>
+                <div class="daemons-grid" id="daemons-grid">
+                    <div style="grid-column: span 4; text-align:center; color:var(--text-dim); padding:20px;">Loading daemons telemetry...</div>
+                </div>
+
+                <!-- 4. Underlying Child Processes & Desktop Applications -->
+                <div class="exec-card tilt-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:10px;">
+                        <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                            <span>🌳</span> Underlying Process Topology & Child Subprocesses
+                        </h3>
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <input type="text" class="proc-search-input" id="proc-search-input" placeholder="Filter processes..." oninput="filterProcessTable(this.value)">
+                            <div class="filter-tags">
+                                <span class="filter-tag active" id="ptag-cortex" onclick="toggleProcessTab('cortex', this)">CORTEX CHILDREN</span>
+                                <span class="filter-tag" id="ptag-desktop" onclick="toggleProcessTab('desktop', this)">DESKTOP APPS</span>
+                                <span class="filter-tag" id="ptag-system" onclick="toggleProcessTab('system', this)">TOP SYSTEM PROCS</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="data-table-wrap">
+                        <table class="cortex-table">
+                            <thead>
+                                <tr>
+                                    <th>PID</th>
+                                    <th>Process Name</th>
+                                    <th>CPU %</th>
+                                    <th>Memory (MB / %)</th>
+                                    <th>Status</th>
+                                    <th>Details / Cmdline</th>
+                                </tr>
+                            </thead>
+                            <tbody id="processes-table-body">
+                                <tr><td colspan="6" style="text-align:center; color:var(--text-dim);">Loading processes...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -1511,6 +1909,14 @@ HTML_DASHBOARD = r"""
         let activeTab = 'stage';
         let isReconnecting = false;
         let reconnectAttempts = 0;
+
+        function toggleSidebar() {
+            const mainEl = document.querySelector('main');
+            const isCollapsed = mainEl.classList.toggle('sidebar-collapsed');
+            const toggleBtn = document.getElementById('btn-side-toggle');
+            if (toggleBtn) toggleBtn.classList.toggle('active', isCollapsed);
+            setTimeout(onWindowResize, 260);
+        }
 
         function connectWebSocket() {
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -1601,7 +2007,7 @@ HTML_DASHBOARD = r"""
         // Tab Switching Router
         function switchTab(tabName) {
             activeTab = tabName;
-            const tabs = ['stage', 'memory', 'graph', 'skills', 'governance'];
+            const tabs = ['stage', 'memory', 'graph', 'skills', 'governance', 'execution'];
             tabs.forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
                 const pane = document.getElementById(`pane-${t}`);
@@ -1621,6 +2027,8 @@ HTML_DASHBOARD = r"""
                 loadSkillsPane();
             } else if (tabName === 'governance') {
                 loadGovernancePane();
+            } else if (tabName === 'execution') {
+                loadExecutionPane();
             }
         }
 
@@ -1641,14 +2049,12 @@ HTML_DASHBOARD = r"""
             bgRenderer.setSize(window.innerWidth, window.innerHeight);
             bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
-            // Perspective Ground Grid
             bgGrid = new THREE.GridHelper(1600, 40, 0x00e5ff, 0x1e293b);
             bgGrid.position.y = -180;
             bgGrid.material.opacity = 0.22;
             bgGrid.material.transparent = true;
             bgScene.add(bgGrid);
 
-            // 550 Synapse Particles
             const particleCount = 550;
             const geom = new THREE.BufferGeometry();
             const positions = new Float32Array(particleCount * 3);
@@ -1668,23 +2074,19 @@ HTML_DASHBOARD = r"""
             bgParticles = new THREE.Points(geom, pMat);
             bgScene.add(bgParticles);
 
-            // Floating Consciousness Core (Upper Right Perspective)
             const coreGroup = new THREE.Group();
             coreGroup.position.set(280, 100, -100);
 
-            // Wireframe Icosahedron
             const icoGeom = new THREE.IcosahedronGeometry(70, 1);
             const icoMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.35 });
             bgCoreMesh = new THREE.Mesh(icoGeom, icoMat);
             coreGroup.add(bgCoreMesh);
 
-            // Inner Glowing Sphere
             const innerGeom = new THREE.SphereGeometry(38, 20, 20);
             const innerMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, wireframe: true, transparent: true, opacity: 0.55 });
             const innerCore = new THREE.Mesh(innerGeom, innerMat);
             coreGroup.add(innerCore);
 
-            // Orbiting Accretion Synapse Ring
             const ringGeom = new THREE.RingGeometry(85, 95, 32);
             const ringMat = new THREE.MeshBasicMaterial({ color: 0xc084fc, side: THREE.DoubleSide, transparent: true, opacity: 0.35, wireframe: true });
             bgRingMesh = new THREE.Mesh(ringGeom, ringMat);
@@ -2088,7 +2490,6 @@ HTML_DASHBOARD = r"""
             requestAnimationFrame(masterRenderLoop);
             TWEEN.update();
 
-            // Ambient background is always active
             if (bgParticles) {
                 bgParticles.rotation.y += 0.0006;
                 bgParticles.rotation.x += 0.0003;
@@ -2112,7 +2513,6 @@ HTML_DASHBOARD = r"""
                 bgRenderer.render(bgScene, bgCamera);
             }
 
-            // Only render active pane's 3D viewport (huge performance boost!)
             if (activeTab === 'stage') {
                 satAngle += 0.025;
                 const radius = 42;
@@ -2248,10 +2648,8 @@ HTML_DASHBOARD = r"""
 
         function formatMarkdown(text) {
             if (!text) return '';
-            // Escape HTML tags first
             let out = escapeHtml(text);
 
-            // Code blocks: ```lang ... ```
             out = out.replace(/```([a-zA-Z0-9_\-]+)?\n([\s\S]*?)```/g, (match, lang, code) => {
                 const langName = lang || 'shell';
                 const id = 'code-' + Math.random().toString(36).substring(2, 9);
@@ -2266,16 +2664,9 @@ HTML_DASHBOARD = r"""
                 `;
             });
 
-            // Inline code `...`
             out = out.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; color:#38bdf8; font-family:var(--font-mono); font-size:0.86rem;">$1</code>');
-
-            // Bold **text**
             out = out.replace(/\*\*([^*]+)\*\*/g, '<b style="color:#fff;">$1</b>');
-
-            // Bullets - item
             out = out.replace(/^(\s*)-\s+(.*)$/gm, '<div style="margin-left:14px;">• $2</div>');
-
-            // Line breaks
             out = out.replace(/\n/g, '<br>');
 
             return out;
@@ -2437,7 +2828,6 @@ HTML_DASHBOARD = r"""
 
                 renderGraphEdges(currentGraphEdges);
 
-                // Render Engrams
                 const engramsBody = document.getElementById('engrams-body');
                 if (data.engrams && data.engrams.length > 0) {
                     engramsBody.innerHTML = data.engrams.map(e => `
@@ -2715,7 +3105,226 @@ HTML_DASHBOARD = r"""
             }
         }
 
-        // ==================== 12. MEDIA & PANIC CONTROLS ====================
+        // ==================== 12. LIVE EXECUTION & DAEMONS MODULE ====================
+        let currentProcessTelemetry = { cortex_children: [], desktop_applications: [], system_processes: [] };
+        let activeProcessTab = 'cortex';
+
+        async function loadExecutionPane() {
+            loadPipelineStepper();
+            loadDaemonsTelemetry();
+            loadProcessesTelemetry();
+        }
+
+        async function loadPipelineStepper() {
+            try {
+                const res = await fetch('/api/execution/pipeline');
+                const data = await res.json();
+                const container = document.getElementById('pipeline-stepper-box');
+                if (!container || !data.stages) return;
+
+                container.innerHTML = data.stages.map(s => {
+                    const statusClass = `pipe-status-${s.status.toLowerCase()}`;
+                    return `
+                        <div class="pipe-stage-card">
+                            <div class="pipe-stage-head">
+                                <span class="pipe-num">STAGE 0${s.stage}</span>
+                                <span class="pipe-status-pill ${statusClass}">${s.status}</span>
+                            </div>
+                            <div class="pipe-title">${escapeHtml(s.name)}</div>
+                            <div class="pipe-comp">${escapeHtml(s.component)}</div>
+                            <div class="pipe-desc">${escapeHtml(s.details)}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('Failed to load pipeline:', e);
+            }
+        }
+
+        async function loadDaemonsTelemetry() {
+            try {
+                const res = await fetch('/api/execution/daemons');
+                const data = await res.json();
+                const grid = document.getElementById('daemons-grid');
+                if (!grid) return;
+
+                grid.innerHTML = `
+                    <!-- 1. Uvicorn -->
+                    <div class="daemon-card tilt-card">
+                        <div class="daemon-head">
+                            <span class="daemon-name">🤖 Web & WS Daemon</span>
+                            <span class="daemon-badge daemon-running">${data.uvicorn_server.status}</span>
+                        </div>
+                        <div class="daemon-metric">PID: <span class="val">${data.uvicorn_server.pid} (Port ${data.uvicorn_server.port})</span></div>
+                        <div class="daemon-metric">CPU: <span class="val">${data.uvicorn_server.cpu_percent}%</span></div>
+                        <div class="daemon-metric">Memory RSS: <span class="val">${data.uvicorn_server.memory_mb} MB</span></div>
+                        <div class="daemon-metric">Threads: <span class="val">${data.uvicorn_server.threads}</span></div>
+                        <div class="daemon-metric">Uptime: <span class="val">${data.uvicorn_server.uptime_seconds}s</span></div>
+                    </div>
+
+                    <!-- 2. Ambient Loop -->
+                    <div class="daemon-card tilt-card">
+                        <div class="daemon-head">
+                            <span class="daemon-name">⏱️ Ambient Tick Worker</span>
+                            <span class="daemon-badge ${data.ambient_worker.active ? 'daemon-running' : 'daemon-paused'}">${data.ambient_worker.status}</span>
+                        </div>
+                        <div class="daemon-metric">Frequency: <span class="val">Every ${data.ambient_worker.interval_seconds}s</span></div>
+                        <div class="daemon-metric">Last Tick: <span class="val">#${data.ambient_worker.last_tick_id}</span></div>
+                        <div class="daemon-metric">Mode: <span class="val">${data.ambient_worker.active ? 'Autonomous Continuous' : 'On-Demand Reactive'}</span></div>
+                        <div class="daemon-metric">Duplex: <span class="val">${data.uvicorn_server.websocket_clients} Active WebSocket(s)</span></div>
+                    </div>
+
+                    <!-- 3. StallBreaker -->
+                    <div class="daemon-card tilt-card">
+                        <div class="daemon-head">
+                            <span class="daemon-name">🛡️ StallBreaker Sentinel</span>
+                            <span class="daemon-badge ${data.stall_breaker.panic_active ? 'daemon-paused' : 'daemon-nominal'}">${data.stall_breaker.status}</span>
+                        </div>
+                        <div class="daemon-metric">Panic Switch: <span class="val">${data.stall_breaker.panic_active ? 'ACTIVATED' : 'DISARMED'}</span></div>
+                        <div class="daemon-metric">Stall Timeout: <span class="val">45.0s Hardware Gate</span></div>
+                        <div class="daemon-metric">Status: <span class="val">${escapeHtml(data.stall_breaker.reason || 'Nominal Subsystem Bus')}</span></div>
+                    </div>
+
+                    <!-- 4. Digital Sleep Daemon -->
+                    <div class="daemon-card tilt-card">
+                        <div class="daemon-head">
+                            <span class="daemon-name">💤 Sleep Daemon</span>
+                            <span class="daemon-badge daemon-nominal">STANDBY</span>
+                        </div>
+                        <div class="daemon-metric">Engrams Stored: <span class="val">${data.sleep_daemon.engrams_consolidated} Atomic Engrams</span></div>
+                        <div class="daemon-metric">Stage 1-4: <span class="val">WAL / Bigram / LoRA</span></div>
+                        <div class="daemon-metric">Scheduler: <span class="val">AC Power & Idle State</span></div>
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Failed to load daemons:', e);
+            }
+        }
+
+        async function loadProcessesTelemetry() {
+            try {
+                const res = await fetch('/api/execution/processes');
+                currentProcessTelemetry = await res.json();
+                renderProcessTable();
+            } catch (e) {
+                console.error('Failed to load processes:', e);
+            }
+        }
+
+        function toggleProcessTab(tabName, el) {
+            activeProcessTab = tabName;
+            document.querySelectorAll('#pane-execution .filter-tag').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            renderProcessTable();
+        }
+
+        function filterProcessTable(query) {
+            renderProcessTable(query);
+        }
+
+        function renderProcessTable(filterQuery) {
+            const tbody = document.getElementById('processes-table-body');
+            if (!tbody) return;
+
+            let procs = [];
+            if (activeProcessTab === 'cortex') {
+                procs = currentProcessTelemetry.cortex_children || [];
+            } else if (activeProcessTab === 'desktop') {
+                procs = currentProcessTelemetry.desktop_applications || [];
+            } else {
+                procs = currentProcessTelemetry.system_processes || [];
+            }
+
+            const q = (filterQuery || document.getElementById('proc-search-input').value || '').toLowerCase().trim();
+            if (q) {
+                procs = procs.filter(p => (p.name || '').toLowerCase().includes(q) || String(p.pid || '').includes(q));
+            }
+
+            if (procs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:20px;">No matching processes active in ${activeProcessTab.toUpperCase()} scope.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = procs.map(p => {
+                const pidStr = p.pid ? `<code>${p.pid}</code>` : (p.process_count ? `<b>${p.process_count} instances</b>` : '-');
+                const memStr = p.mem_mb ? `${p.mem_mb} MB` : (p.mem_pct ? `${p.mem_pct}%` : '-');
+                const cpuStr = p.cpu_pct !== undefined ? `${p.cpu_pct}%` : '0.0%';
+                const statusStr = `<span class="layer-badge layer-entity">${p.status || 'running'}</span>`;
+                const details = p.cmdline || p.exe || 'Native Win32 Subprocess';
+
+                return `
+                    <tr>
+                        <td>${pidStr}</td>
+                        <td><b>${escapeHtml(p.name)}</b></td>
+                        <td><span style="color:var(--accent-cyan); font-weight:600;">${cpuStr}</span></td>
+                        <td>${memStr}</td>
+                        <td>${statusStr}</td>
+                        <td style="color:var(--text-dim); font-size:0.75rem; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(details)}">${escapeHtml(details)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Terminal Execution in Governed Sandbox
+        function runPresetTerminal(cmd) {
+            const input = document.getElementById('terminal-cmd-input');
+            if (input) {
+                input.value = cmd;
+                executeTerminalCommand();
+            }
+        }
+
+        async function executeTerminalCommand() {
+            const input = document.getElementById('terminal-cmd-input');
+            const cmd = input.value.trim();
+            if (!cmd) return;
+
+            const screen = document.getElementById('terminal-screen-box');
+            appendTerminalLine(`cortex@laptop:~$ ${cmd}`, 'term-line-cmd');
+            input.value = '';
+
+            try {
+                const res = await fetch('/api/execution/terminal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: cmd })
+                });
+                const data = await res.json();
+                
+                if (data.status === 'DENIED') {
+                    appendTerminalLine(`[Cedar Policy DENY]: ${data.stderr}`, 'term-line-stderr');
+                } else if (data.status === 'FAILED_ROLLED_BACK') {
+                    appendTerminalLine(`[Exit Code ${data.exit_code} - Rolled back to checkpoint ${data.checkpoint_sha}]:\n${data.stderr || data.stdout}`, 'term-line-stderr');
+                } else {
+                    if (data.stdout) appendTerminalLine(data.stdout, 'term-line-stdout');
+                    if (data.stderr) appendTerminalLine(data.stderr, 'term-line-stderr');
+                    appendTerminalLine(`✓ Executed in ${data.execution_time_ms} ms (Pre-checkpoint: ${data.checkpoint_sha || 'N/A'}, Exit 0)`, 'term-line-meta');
+                }
+            } catch (e) {
+                appendTerminalLine(`Terminal Error: ${e}`, 'term-line-stderr');
+            }
+
+            screen.scrollTop = screen.scrollHeight;
+            loadProcessesTelemetry();
+        }
+
+        function appendTerminalLine(text, className) {
+            const screen = document.getElementById('terminal-screen-box');
+            const div = document.createElement('div');
+            div.className = className;
+            div.innerText = text;
+            screen.appendChild(div);
+            screen.scrollTop = screen.scrollHeight;
+        }
+
+        function clearTerminalScreen() {
+            const screen = document.getElementById('terminal-screen-box');
+            if (screen) {
+                screen.innerHTML = `<div class="term-line" style="color:var(--text-dim);">[Terminal cleared. Ready for sandbox execution.]</div>`;
+            }
+        }
+
+        // ==================== 13. MEDIA & PANIC CONTROLS ====================
         async function pollLiveMedia() {
             try {
                 const res = await fetch('/api/media');
@@ -2748,6 +3357,52 @@ HTML_DASHBOARD = r"""
             }
         }
 
+        // ==================== VOICE PERSONA & BARGE-IN ====================
+        let voiceSpeechEnabled = true;
+
+        async function switchVoicePersona(persona) {
+            try {
+                const res = await fetch('/api/voice/persona', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ persona: persona })
+                });
+                const d = await res.json();
+                if (d.status === 'SUCCESS') {
+                    appendMessage(`🎙️ Neural voice persona switched to **${persona.toUpperCase()}** (${d.description}).`, 'msg-cortex');
+                }
+            } catch (e) {
+                console.error('Failed to switch voice persona:', e);
+            }
+        }
+
+        async function bargeInStopVoice() {
+            try {
+                await fetch('/api/voice/stop', { method: 'POST' });
+                const icon = document.getElementById('voice-status-icon');
+                if (icon) {
+                    icon.innerText = '⏹️';
+                    setTimeout(() => { icon.innerText = voiceSpeechEnabled ? '🎙️' : '🔇'; }, 1000);
+                }
+            } catch (e) {}
+        }
+
+        async function toggleVoiceSpeech() {
+            voiceSpeechEnabled = !voiceSpeechEnabled;
+            try {
+                await fetch('/api/voice/toggle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled: voiceSpeechEnabled })
+                });
+                const btn = document.getElementById('btn-voice-toggle');
+                const icon = document.getElementById('voice-status-icon');
+                if (btn) btn.innerText = voiceSpeechEnabled ? '🔊' : '🔈';
+                if (icon) icon.innerText = voiceSpeechEnabled ? '🎙️' : '🔇';
+                appendMessage(`Neural voice speech output is now **${voiceSpeechEnabled ? 'ACTIVE' : 'MUTED'}**.`, 'msg-cortex');
+            } catch (e) {}
+        }
+
         async function togglePanicKillswitch() {
             const btn = document.getElementById('btn-panic');
             const isPanic = btn.innerText.includes('RESET');
@@ -2774,6 +3429,8 @@ HTML_DASHBOARD = r"""
             else if (e.ctrlKey && e.key === '3') { e.preventDefault(); switchTab('graph'); }
             else if (e.ctrlKey && e.key === '4') { e.preventDefault(); switchTab('skills'); }
             else if (e.ctrlKey && e.key === '5') { e.preventDefault(); switchTab('governance'); }
+            else if (e.ctrlKey && e.key === '6') { e.preventDefault(); switchTab('execution'); }
+            else if (e.ctrlKey && e.key.toLowerCase() === 'b') { e.preventDefault(); toggleSidebar(); }
             else if (e.ctrlKey && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
                 switchTab('stage');
@@ -3023,6 +3680,209 @@ async def trigger_sleep():
     report = await stack["sleep"].run_consolidation_cycle()
     return {"status": "SUCCESS", "report": report.__dict__}
 
+
+# 6. Live Execution, Terminal Sandbox, Daemons & Child Processes
+@app.post("/api/execution/terminal")
+async def run_terminal_command(req: TerminalRunRequest):
+    sandbox = stack["sandbox"]
+    res = await sandbox.run_command_in_sandbox(req.command, timeout=req.timeout or 30)
+    return res
+
+@app.get("/api/execution/daemons")
+async def get_daemons_status():
+    proc = psutil.Process(os.getpid())
+    engine = stack["engine"]
+    breaker = engine.stall_breaker
+    memory = stack["memory"]
+    
+    uptime_sec = round(time.time() - proc.create_time(), 1)
+    
+    try:
+        cpu_pct = proc.cpu_percent(interval=0.01)
+        mem_mb = round(proc.memory_info().rss / (1024 * 1024), 2)
+        threads = proc.num_threads()
+    except Exception:
+        cpu_pct, mem_mb, threads = 0.0, 0.0, 1
+
+    engrams_count = len(memory.get_recent_engrams(limit=500))
+
+    return {
+        "uvicorn_server": {
+            "name": "FastAPI / Uvicorn Cognitive Gateway",
+            "pid": os.getpid(),
+            "port": 8000,
+            "status": "RUNNING",
+            "uptime_seconds": uptime_sec,
+            "cpu_percent": cpu_pct,
+            "memory_mb": mem_mb,
+            "threads": threads,
+            "websocket_clients": len(active_websockets)
+        },
+        "ambient_worker": {
+            "name": "Ambient Cognitive Tick Daemon (GWA)",
+            "status": "RUNNING" if ambient_daemon_active else "PAUSED",
+            "interval_seconds": 15,
+            "last_tick_id": engine.state.tick_id,
+            "active": ambient_daemon_active
+        },
+        "stall_breaker": {
+            "name": "Hardware StallBreaker Panic Sentinel",
+            "status": "TRIGGERED" if breaker.is_panic_triggered() else "NOMINAL",
+            "panic_active": breaker.is_panic_triggered(),
+            "reason": breaker.panic_reason
+        },
+        "sleep_daemon": {
+            "name": "Asynchronous Digital Sleep Consolidation Daemon",
+            "status": "STANDBY (Idle-Scheduled)",
+            "engrams_consolidated": engrams_count,
+            "last_cycle_status": "READY"
+        }
+    }
+
+@app.get("/api/execution/processes")
+async def get_processes_telemetry():
+    proc = psutil.Process(os.getpid())
+    somato = stack["engine"].somato
+    
+    cortex_children = []
+    try:
+        for child in proc.children(recursive=True):
+            try:
+                cortex_children.append({
+                    "pid": child.pid,
+                    "ppid": child.ppid(),
+                    "name": child.name(),
+                    "status": child.status(),
+                    "cpu_pct": round(child.cpu_percent(interval=0.01), 1),
+                    "mem_mb": round(child.memory_info().rss / (1024 * 1024), 2),
+                    "cmdline": " ".join(child.cmdline()[:4]) if child.cmdline() else ""
+                })
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+    except Exception:
+        pass
+
+    system_procs = somato.get_processes(top_n=20, sort_by="memory")
+    desktop_apps = somato.get_user_applications(top_n=10)
+
+    return {
+        "cortex_pid": os.getpid(),
+        "cortex_children": cortex_children,
+        "desktop_applications": desktop_apps,
+        "system_processes": system_procs,
+        "total_system_processes": len(psutil.pids())
+    }
+
+@app.get("/api/execution/pipeline")
+async def get_pipeline_trace():
+    engine = stack["engine"]
+    state = engine.state
+    wm = stack["wm"]
+    
+    return {
+        "tick_id": state.tick_id,
+        "entropy": 1.0,
+        "temperature": state.current_temperature,
+        "stages": [
+            {
+                "stage": 1,
+                "name": "Somatosensory Perception",
+                "component": "SystemSomatosensory & GSMTC Bus",
+                "status": "ACTIVE",
+                "details": "Monitoring Windows telemetry, GPU VRAM, active window, and audio playback."
+            },
+            {
+                "stage": 2,
+                "name": "Working Memory & LTM Retrieval",
+                "component": "Letta Blocks & Bi-Temporal MAGMA Graph",
+                "status": "COMPLETED",
+                "details": f"4 in-context blocks compiled ({len(wm.compile())} chars) + Hybrid RAG."
+            },
+            {
+                "stage": 3,
+                "name": "Tri-Perspective Divergent Generation",
+                "component": "Global Workspace Agent Swarm",
+                "status": "READY",
+                "details": "Specialist Nodes: Analytic, Pragmatic, and Cautious candidate generation."
+            },
+            {
+                "stage": 4,
+                "name": "Convergent Critic Scoring & Shannon Entropy",
+                "component": "IntrinsicDriveMonitor H(W)",
+                "status": "READY",
+                "details": f"Evaluates candidates from -5 to +5. H(W) regulated temperature={state.current_temperature:.2f}."
+            },
+            {
+                "stage": 5,
+                "name": "Metacognitive Dual-Process Router",
+                "component": "System 1 Reflex & HASSUM System 2 Gate",
+                "status": "NOMINAL",
+                "details": "Sub-100ms reflex routing for hardware/media; HASSUM uncertainty gate for deep tasks."
+            },
+            {
+                "stage": 6,
+                "name": "Cedar Policy Decision Point (PDP)",
+                "component": "PolicyEngine (policies.cedar)",
+                "status": "ENFORCING",
+                "details": "Sub-0.1ms deterministic security gates: ALLOW, ESCALATE, DENY."
+            },
+            {
+                "stage": 7,
+                "name": "Deterministic Shadow Git Checkpoint",
+                "component": "GitShadowCheckpointManager",
+                "status": "PINNED",
+                "details": "Captures modified & untracked files into refs/checkpoints/ in <1s."
+            },
+            {
+                "stage": 8,
+                "name": "Sandboxed OS Subprocess Execution",
+                "component": "SandboxRunner",
+                "status": "ISOLATED",
+                "details": "Sanitized environment execution with automated rollback on non-zero exit."
+            },
+            {
+                "stage": 9,
+                "name": "State Transition & Working Memory Patch",
+                "component": "Letta Core Memory Re-think & Episodic WAL",
+                "status": "SYNCHRONIZED",
+                "details": "In-context block patch and lossless Tier 1 append-only SQLite commit."
+            }
+        ]
+    }
+
+
+# ==================== VOICE REST API ENDPOINTS ====================
+
+@app.get("/api/voice/status")
+async def get_voice_status():
+    return {
+        "enabled": voice_engine.enabled,
+        "is_speaking": voice_engine.is_speaking,
+        "active_persona": voice_engine.active_persona,
+        "personas": voice_engine.list_personas()
+    }
+
+@app.post("/api/voice/speak")
+async def speak_text(req: VoiceSpeakRequest):
+    voice_engine.speak(req.text, persona=req.persona)
+    return {"status": "SUCCESS", "message": "Speech playback dispatched."}
+
+@app.post("/api/voice/stop")
+async def stop_voice_playback():
+    voice_engine.stop()
+    return {"status": "SUCCESS", "message": "Speech halted immediately (barge-in)."}
+
+@app.post("/api/voice/persona")
+async def set_voice_persona(req: VoicePersonaRequest):
+    res = voice_engine.set_persona(req.persona)
+    return res
+
+@app.post("/api/voice/toggle")
+async def toggle_voice(req: VoiceToggleRequest):
+    voice_engine.enabled = req.enabled
+    return {"status": "SUCCESS", "enabled": voice_engine.enabled}
+
+
 # ==================== WEBSOCKET STREAMING ====================
 
 @app.websocket("/ws")
@@ -3059,11 +3919,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 result = await engine.run_cognitive_tick(external_input=user_prompt)
 
                 if result.hold_card:
+                    if voice_engine.enabled:
+                        voice_engine.speak("Security hold required for external action.")
                     await websocket.send_json({
                         "type": "hold_card",
                         "card": result.hold_card
                     })
                 else:
+                    if voice_engine.enabled and result.user_response:
+                        voice_engine.speak(result.user_response)
+
                     await websocket.send_json({
                         "type": "cortex_response",
                         "response": result.user_response,
@@ -3086,6 +3951,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     resumed = await engine.run_cognitive_tick(
                         external_input=last_pending_prompt, human_approval=True
                     )
+                    if voice_engine.enabled and resumed.user_response:
+                        voice_engine.speak(resumed.user_response)
+
                     await websocket.send_json({
                         "type": "cortex_response",
                         "response": resumed.user_response,

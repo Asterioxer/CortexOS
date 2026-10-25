@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S. - Stark Industries AI Desktop Interface</title>
+    <style>
+        :root {
+            --bg-base: #040810;
+            --jarvis-cyan: #00f0ff;
+            --jarvis-blue: #0284c7;
+            --jarvis-glow: #52fefe;
+            --jarvis-gold: #fbbf24;
+            --jarvis-purple: #c084fc;
+            --jarvis-emerald: #10b981;
+            --jarvis-red: #ef4444;
+            --panel-bg: rgba(6, 14, 28, 0.82);
+            --panel-border: rgba(0, 240, 255, 0.28);
+            --font-hud: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: #f1f5f9;
+            font-family: var(--font-hud);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Ambient holographic background grid & HUD scanlines */
+        .hud-grid {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 50% 40%, rgba(0, 180, 255, 0.12) 0%, transparent 68%),
+                linear-gradient(rgba(0, 240, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+            background-size: 100% 100%, 36px 36px, 36px 36px;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .hud-scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 240, 255, 0.02) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* Top Stark HUD Bar */
+        header {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 24px;
+            background: linear-gradient(180deg, rgba(4, 8, 16, 0.96) 0%, rgba(4, 8, 16, 0.5) 100%);
+            border-bottom: 1px solid var(--panel-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .hud-title-box {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .stark-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            background: rgba(0, 240, 255, 0.12);
+            color: var(--jarvis-cyan);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background-color: var(--jarvis-cyan);
+            box-shadow: 0 0 8px var(--jarvis-cyan);
+            animation: pulse-dot 1.8s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(0.8); }
+        }
+
+        .hud-title {
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            color: var(--jarvis-cyan);
+            text-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+        }
+
+        .hud-mark {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            color: var(--jarvis-gold);
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(251, 191, 36, 0.1);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+
+        .hud-telemetry {
+            display: flex;
+            gap: 18px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .tele-item {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .tele-lbl {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+        }
+
+        .tele-val {
+            font-weight: 700;
+            color: var(--jarvis-cyan);
+            font-family: monospace;
+        }
+
+        /* ------------------------------------------------------------- */
+        /* Centerpiece: Authentic Iron Man Arc Reactor + Equalizer HUD    */
+        /* ------------------------------------------------------------- */
+        main {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 5;
+            overflow: hidden;
+        }
+
+        #equalizer-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 6;
+        }
+
+        /* Authentic Pure CSS Iron Man Arc Reactor (GitHub Reference) */
+        .reactor-container {
+            width: 250px;
+            height: 250px;
+            position: relative;
+            border-radius: 50%;
+            background-color: #0c1522;
+            border: 2px solid #062137;
+            box-shadow: 0px 0px 45px 10px rgba(0, 240, 255, 0.22), inset 0px 0px 24px 2px rgba(0, 240, 255, 0.3);
+            z-index: 7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .circle {
+            border-radius: 50%;
+        }
+
+        .abs-center {
+            position: absolute;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            margin: auto;
+        }
+
+        .reactor-container-inner {
+            height: 204px;
+            width: 204px;
+            background-color: #060e1a;
+            box-shadow: 0px 0px 10px 2px var(--jarvis-glow);
+            border: 1px dashed rgba(0, 240, 255, 0.4);
+        }
+
+        .tunnel {
+            width: 174px;
+            height: 174px;
+            background-color: #ffffff;
+            box-shadow: 0px 0px 12px 3px var(--jarvis-glow), 0px 0px 8px 4px var(--jarvis-glow) inset;
+        }
+
+        .core-wrapper {
+            width: 140px;
+            height: 140px;
+            background-color: #042533;
+            box-shadow: 0px 0px 10px 4px var(--jarvis-glow), 0px 0px 10px 4px var(--jarvis-glow) inset;
+        }
+
+        .core-outer {
+            width: 96px;
+            height: 96px;
+            border: 2px solid var(--jarvis-glow);
+            background-color: #ffffff;
+            box-shadow: 0px 0px 8px 2px var(--jarvis-glow), 0px 0px 12px 6px var(--jarvis-glow) inset;
+        }
+
+        .core-inner {
+            width: 58px;
+            height: 58px;
+            border: 3px solid #083344;
+            background-color: #ffffff;
+            box-shadow: 0px 0px 14px 6px var(--jarvis-glow), 0px 0px 10px 8px var(--jarvis-glow) inset;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .core-status-text {
+            font-size: 8px;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            color: #032b3d;
+            text-transform: uppercase;
+        }
+
+        .coil-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            animation: 6s infinite linear reactor-anim;
+        }
+
+        .coil {
+            position: absolute;
+            width: 24px;
+            height: 16px;
+            top: calc(50% - 94px);
+            left: calc(50% - 12px);
+            transform-origin: 12px 94px;
+            background-color: #042331;
+            border: 1px solid var(--jarvis-cyan);
+            box-shadow: 0px 0px 6px var(--jarvis-glow) inset;
+            border-radius: 2px;
+        }
+
+        .coil-1 { transform: rotate(0deg); }
+        .coil-2 { transform: rotate(45deg); }
+        .coil-3 { transform: rotate(90deg); }
+        .coil-4 { transform: rotate(135deg); }
+        .coil-5 { transform: rotate(180deg); }
+        .coil-6 { transform: rotate(225deg); }
+        .coil-7 { transform: rotate(270deg); }
+        .coil-8 { transform: rotate(315deg); }
+
+        @keyframes reactor-anim {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        /* Overlay State Badge */
+        .core-state-overlay {
+            margin-top: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            z-index: 10;
+        }
+
+        .state-pill {
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--jarvis-cyan);
+            background: rgba(4, 20, 36, 0.85);
+            padding: 4px 16px;
+            border-radius: 9999px;
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+            transition: all 0.25s ease;
+        }
+
+        .persona-pill {
+            font-size: 10px;
+            letter-spacing: 0.08em;
+            color: #94a3b8;
+            background: rgba(6, 12, 22, 0.9);
+            padding: 2px 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* ------------------------------------------------------------- */
+        /* Bottom Control Panel & Transcripts                            */
+        /* ------------------------------------------------------------- */
+        footer {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 14px 22px 18px 22px;
+            background: linear-gradient(0deg, rgba(4, 8, 16, 0.98) 0%, rgba(4, 8, 16, 0.6) 100%);
+            border-top: 1px solid var(--panel-border);
+            backdrop-filter: blur(12px);
+        }
+
+        /* Persona Switcher Bar */
+        .persona-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .persona-title {
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+        }
+
+        .persona-btn {
+            background: rgba(8, 18, 34, 0.85);
+            border: 1px solid rgba(0, 240, 255, 0.18);
+            color: #cbd5e1;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .persona-btn:hover {
+            border-color: var(--jarvis-cyan);
+            background: rgba(0, 240, 255, 0.15);
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .persona-btn.active {
+            background: rgba(0, 240, 255, 0.22);
+            border-color: var(--jarvis-cyan);
+            color: var(--jarvis-cyan);
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+        }
+
+        /* Live Conversation HUD Cards */
+        .transcript-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .transcript-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-left: 3px solid var(--jarvis-cyan);
+            border-radius: 8px;
+            padding: 8px 12px;
+            box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 48px;
+        }
+
+        .card-lbl {
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            margin-bottom: 2px;
+        }
+
+        .card-content {
+            font-size: 12px;
+            color: #f8fafc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Action Buttons */
+        .actions-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .action-group {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: rgba(8, 18, 34, 0.9);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            color: #cbd5e1;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            border-color: var(--jarvis-cyan);
+            background: rgba(0, 240, 255, 0.2);
+            color: #ffffff;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+        }
+
+        .action-btn.danger {
+            border-color: rgba(239, 68, 68, 0.4);
+            background: rgba(69, 10, 10, 0.6);
+            color: #fca5a5;
+        }
+
+        .action-btn.danger:hover {
+            border-color: var(--jarvis-red);
+            background: rgba(239, 68, 68, 0.35);
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.45);
+        }
+
+        /* Terminal Input */
+        .terminal-box {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .terminal-input {
+            flex: 1;
+            background: rgba(3, 8, 16, 0.85);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #ffffff;
+            font-size: 12px;
+            outline: none;
+            transition: border 0.2s;
+        }
+
+        .terminal-input:focus {
+            border-color: var(--jarvis-cyan);
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+        }
+
+        .transmit-btn {
+            background: var(--jarvis-blue);
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .transmit-btn:hover {
+            background: #02669e;
+            box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="hud-grid"></div>
+    <div class="hud-scanlines"></div>
+
+    <!-- Stark Industries Top Bar -->
+    <header>
+        <div class="hud-title-box">
+            <div class="stark-badge">
+                <span class="status-dot"></span>
+                <span id="conn-status">J.A.R.V.I.S. ONLINE</span>
+            </div>
+            <span class="hud-title">STARK-OS // AI INTERFACE</span>
+            <span class="hud-mark">MARK XLII</span>
+        </div>
+
+        <div class="hud-telemetry">
+            <div class="tele-item">
+                <span class="tele-lbl">Layer 1 Transport</span>
+                <span class="tele-val">Full-Duplex WebRTC + Token Stream</span>
+            </div>
+            <div class="tele-item">
+                <span class="tele-lbl">Layer 2 VAD</span>
+                <span class="tele-val">Silero v6 + Noise Suppressor</span>
+            </div>
+            <div class="tele-item">
+                <span class="tele-lbl">Barge-In Latency</span>
+                <span class="tele-val">&lt; 50ms Neural Cutoff</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Viewport: Authentic Arc Reactor & Radial Visualizer -->
+    <main>
+        <canvas id="equalizer-canvas"></canvas>
+
+        <!-- Pure CSS Arc Reactor -->
+        <div class="reactor-container">
+            <div class="reactor-container-inner circle abs-center"></div>
+            <div class="tunnel circle abs-center"></div>
+            <div class="core-wrapper circle abs-center"></div>
+            <div class="core-outer circle abs-center"></div>
+            <div class="core-inner circle abs-center">
+                <span class="core-status-text" id="reactor-core-status">STANDBY</span>
+            </div>
+            <div class="coil-container" id="coil-spinner">
+                <div class="coil coil-1"></div>
+                <div class="coil coil-2"></div>
+                <div class="coil coil-3"></div>
+                <div class="coil coil-4"></div>
+                <div class="coil coil-5"></div>
+                <div class="coil coil-6"></div>
+                <div class="coil coil-7"></div>
+                <div class="coil coil-8"></div>
+            </div>
+        </div>
+
+        <!-- Overlay Status Pill -->
+        <div class="core-state-overlay">
+            <div class="state-pill" id="core-state-label">STANDBY PROTOCOL</div>
+            <div class="persona-pill" id="core-persona-label">Neural Voice: J.A.R.V.I.S. (Brian)</div>
+        </div>
+    </main>
+
+    <!-- Bottom Controls & Transcription Bar -->
+    <footer>
+        <!-- Persona Selector -->
+        <div class="persona-bar">
+            <span class="persona-title">Persona Protocol:</span>
+            <button class="persona-btn active" onclick="switchPersona('jarvis')">🤖 J.A.R.V.I.S.</button>
+            <button class="persona-btn" onclick="switchPersona('friday')">🌸 FRIDAY (Ava)</button>
+            <button class="persona-btn" onclick="switchPersona('edith')">⚡ EDITH (Emma)</button>
+            <button class="persona-btn" onclick="switchPersona('christopher')">👤 Christopher</button>
+            <button class="persona-btn" onclick="switchPersona('neerja')">🇮🇳 Neerja</button>
+        </div>
+
+        <!-- Live Transcripts -->
+        <div class="transcript-grid">
+            <div class="transcript-card">
+                <div class="card-lbl">🗣️ SOHAM (VOICE IN)</div>
+                <div class="card-content" id="transcript-user">"Listening for voice commands..."</div>
+            </div>
+            <div class="transcript-card">
+                <div class="card-lbl" style="color: var(--jarvis-cyan);">🤖 J.A.R.V.I.S. (VOICE OUT)</div>
+                <div class="card-content" id="transcript-assistant" style="color: var(--jarvis-cyan);">All systems fully operational. Ready for instructions.</div>
+            </div>
+        </div>
+
+        <!-- Tactical Shortcuts & Stop -->
+        <div class="actions-row">
+            <div class="action-group">
+                <button class="action-btn" onclick="sendAction('Give me my executive briefing.')">📊 Executive Briefing</button>
+                <button class="action-btn" onclick="sendAction('What is today\'s latest news?')">🌐 Live News</button>
+                <button class="action-btn" onclick="sendAction('Open the application called Anti-Gravity')">🚀 Launch Antigravity</button>
+                <button class="action-btn" onclick="sendAction('Open LinkedIn and go to my profile')">💼 Open LinkedIn</button>
+            </div>
+            <button class="action-btn danger" onclick="sendStop()">🛑 INSTANT STOP</button>
+        </div>
+
+        <!-- Terminal Command Input Bar -->
+        <div class="terminal-box">
+            <input type="text" id="terminal-input" class="terminal-input" placeholder="> Enter command or speak naturally to J.A.R.V.I.S..." onkeydown="handleInputKey(event)" />
+            <button class="transmit-btn" onclick="submitTerminal()">TRANSMIT ➔</button>
+        </div>
+    </footer>
+
+    <!-- Hardware-Accelerated Radial Equalizer & HUD Canvas Script -->
+    <script>
+        const canvas = document.getElementById('equalizer-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        });
+
+        let currentState = 'idle';
+        let currentPersona = 'jarvis';
+        let animTime = 0;
+        let wavePhase = 0;
+
+        const STATE_THEMES = {
+            idle: {
+                primary: '#00f0ff',
+                coreText: 'STANDBY',
+                label: 'STANDBY PROTOCOL',
+                speed: 0.015,
+                glow: '#52fefe'
+            },
+            listening: {
+                primary: '#10b981',
+                coreText: 'MIC ON',
+                label: '🎙️ AUDIO CAPTURE ACTIVE',
+                speed: 0.035,
+                glow: '#34d399'
+            },
+            thinking: {
+                primary: '#c084fc',
+                coreText: 'THINK',
+                label: '🧠 COGNITIVE MATRIX (MoE)',
+                speed: 0.065,
+                glow: '#e879f9'
+            },
+            speaking: {
+                primary: '#38bdf8',
+                coreText: 'AUDIO',
+                label: '🗣️ VOCAL TRANSMISSION',
+                speed: 0.030,
+                glow: '#7dd3fc'
+            },
+            barge_in: {
+                primary: '#ef4444',
+                coreText: 'STOP',
+                label: '🛑 LOCKDOWN CUTOFF',
+                speed: 0.005,
+                glow: '#f87171'
+            }
+        };
+
+        function setCoreVisualState(stateName) {
+            currentState = stateName;
+            const theme = STATE_THEMES[stateName] || STATE_THEMES.idle;
+
+            const pill = document.getElementById('core-state-label');
+            pill.innerText = theme.label;
+            pill.style.color = theme.primary;
+            pill.style.borderColor = theme.primary;
+            pill.style.boxShadow = `0 0 16px ${theme.primary}55`;
+
+            document.getElementById('reactor-core-status').innerText = theme.coreText;
+
+            // Change coil animation speed
+            const spinner = document.getElementById('coil-spinner');
+            if (spinner) {
+                if (stateName === 'thinking') spinner.style.animationDuration = '1.8s';
+                else if (stateName === 'speaking') spinner.style.animationDuration = '3.5s';
+                else if (stateName === 'listening') spinner.style.animationDuration = '4.5s';
+                else spinner.style.animationDuration = '6.0s';
+            }
+        }
+
+        // Render Hardware-Accelerated Radial Equalizer Spikes
+        function renderHUD() {
+            ctx.clearRect(0, 0, width, height);
+
+            const cx = width / 2;
+            const cy = height / 2 - 25; // Centered on Arc Reactor
+            const theme = STATE_THEMES[currentState] || STATE_THEMES.idle;
+
+            animTime += theme.speed;
+            wavePhase += 0.12;
+            const t = animTime;
+
+            // 1. Outer Compass Reticle Ring
+            const r_reticle = 155;
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            ctx.strokeStyle = '#0e2a44';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(0, 0, r_reticle, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Degree Ticks
+            for (let i = 0; i < 36; i++) {
+                const a = (i / 36) * Math.PI * 2;
+                const isMajor = i % 9 === 0;
+                const r1 = isMajor ? r_reticle - 10 : r_reticle - 4;
+                const r2 = r_reticle;
+                ctx.strokeStyle = isMajor ? theme.primary : '#163b5c';
+                ctx.lineWidth = isMajor ? 2 : 1;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
+                ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2);
+                ctx.stroke();
+            }
+
+            // Cardinal Heading Labels
+            ctx.fillStyle = '#0284c7';
+            ctx.font = 'bold 8px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('000°', 0, -r_reticle - 8);
+            ctx.fillText('090°', r_reticle + 14, 3);
+            ctx.fillText('180°', 0, r_reticle + 14);
+            ctx.fillText('270°', -r_reticle - 14, 3);
+
+            // 2. 48 Dynamic Radial Voice Equalizer Laser Spikes
+            const numBars = 48;
+            const r_base = 135;
+            for (let b = 0; b < numBars; b++) {
+                const ang = (b / numBars) * Math.PI * 2;
+                let amp = 2;
+
+                if (currentState === 'speaking') {
+                    amp = 4 + Math.abs(Math.sin(wavePhase * 1.5 + b * 0.4)) * 22 + Math.cos(wavePhase * 0.8 + b) * 6;
+                } else if (currentState === 'listening') {
+                    amp = 3 + Math.abs(Math.sin(wavePhase + b * 0.3)) * 10;
+                } else if (currentState === 'thinking') {
+                    amp = 4 + Math.abs(Math.sin(t * 7 + b * 1.1)) * 14;
+                } else if (currentState === 'barge_in') {
+                    amp = 14;
+                } else {
+                    amp = 2 + Math.sin(t * 2 + b * 0.25) * 2.5;
+                }
+
+                const r_tip = r_base + amp;
+                ctx.strokeStyle = (b % 2 === 0) ? theme.primary : '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(ang) * r_base, Math.sin(ang) * r_base);
+                ctx.lineTo(Math.cos(ang) * r_tip, Math.sin(ang) * r_tip);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+            requestAnimationFrame(renderHUD);
+        }
+        requestAnimationFrame(renderHUD);
+
+        // -------------------------------------------------------------
+        // WebSocket Bidirectional Integration (Port 9090)
+        // -------------------------------------------------------------
+        let ws = null;
+        function connectWebSocket() {
+            const host = window.location.hostname || '127.0.0.1';
+            const wsUrl = `ws://${host}:9090/ws`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    document.getElementById('conn-status').innerText = 'J.A.R.V.I.S. LINKED';
+                    document.getElementById('conn-status').style.color = '#10b981';
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const payload = JSON.parse(event.data);
+                        handleIncomingEvent(payload);
+                    } catch (e) {}
+                };
+
+                ws.onclose = () => {
+                    document.getElementById('conn-status').innerText = 'STANDALONE MODE';
+                    document.getElementById('conn-status').style.color = '#f59e0b';
+                    setTimeout(connectWebSocket, 3000);
+                };
+
+                ws.onerror = () => {
+                    document.getElementById('conn-status').innerText = 'STANDALONE MODE';
+                    document.getElementById('conn-status').style.color = '#f59e0b';
+                };
+            } catch (e) {
+                setTimeout(connectWebSocket, 4000);
+            }
+        }
+
+        function handleIncomingEvent(payload) {
+            const type = payload.type;
+            const data = payload.data;
+
+            if (type === 'state_sync') {
+                if (data.status) setCoreVisualState(data.status);
+                if (data.persona) updateActivePersonaUI(data.persona);
+                if (data.heard) document.getElementById('transcript-user').innerText = `"${data.heard}"`;
+                if (data.response) document.getElementById('transcript-assistant').innerText = data.response;
+            } else if (type === 'state') {
+                setCoreVisualState(data);
+                if (data === 'idle') {
+                    const asstBox = document.getElementById('transcript-assistant');
+                    if (asstBox) asstBox.dataset.streaming = 'false';
+                }
+            } else if (type === 'persona') {
+                updateActivePersonaUI(data);
+            } else if (type === 'heard') {
+                document.getElementById('transcript-user').innerText = `"${data}"`;
+                setCoreVisualState('thinking');
+            } else if (type === 'token_stream') {
+                const asstBox = document.getElementById('transcript-assistant');
+                if (data.done) {
+                    if (asstBox) asstBox.dataset.streaming = 'false';
+                } else if (data.token) {
+                    if (currentState !== 'speaking') setCoreVisualState('speaking');
+                    if (asstBox) {
+                        if (asstBox.dataset.streaming !== 'true') {
+                            asstBox.innerText = '';
+                            asstBox.dataset.streaming = 'true';
+                        }
+                        asstBox.innerText += data.token;
+                    }
+                }
+            } else if (type === 'response') {
+                const asstBox = document.getElementById('transcript-assistant');
+                if (asstBox) {
+                    asstBox.innerText = data;
+                    asstBox.dataset.streaming = 'false';
+                }
+                setCoreVisualState('speaking');
+            }
+        }
+
+        function switchPersona(name) {
+            updateActivePersonaUI(name);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ command: 'set_persona', persona: name }));
+            }
+        }
+
+        function updateActivePersonaUI(name) {
+            currentPersona = name;
+            const cap = name.toUpperCase();
+            document.getElementById('core-persona-label').innerText = `Neural Voice: ${cap}`;
+
+            document.querySelectorAll('.persona-btn').forEach(btn => {
+                const match = btn.innerText.toLowerCase().includes(name.toLowerCase());
+                btn.classList.toggle('active', match);
+            });
+        }
+
+        function sendAction(commandText) {
+            document.getElementById('transcript-user').innerText = `"${commandText}"`;
+            setCoreVisualState('thinking');
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ command: 'process_message', text: commandText }));
+            }
+        }
+
+        function sendStop() {
+            setCoreVisualState('barge_in');
+            setTimeout(() => setCoreVisualState('idle'), 1200);
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ command: 'stop' }));
+            }
+        }
+
+        function handleInputKey(e) {
+            if (e.key === 'Enter') submitTerminal();
+        }
+
+        function submitTerminal() {
+            const input = document.getElementById('terminal-input');
+            const val = input.value.trim();
+            if (val) {
+                sendAction(val);
+                input.value = '';
+            }
+        }
+
+        connectWebSocket();
+    </script>
+</body>
+</html>

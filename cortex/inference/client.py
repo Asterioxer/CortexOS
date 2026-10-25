@@ -29,8 +29,12 @@ class LocalInferenceClient:
     ):
         self.base_url = base_url.rstrip("/")
         self.model = model
+        self.fast_model = "qwen2.5:3b"
+        self.chat_model = "dolphinlabs/llama3.2-3b-uncensored:latest"
+        self.reasoning_model = "nandhank/qwen3.5-abliterated-truthful:9b"
         self.embed_dim = embed_dim
         self._is_ollama_available: Optional[bool] = None
+        self._available_models: List[str] = []
 
     async def _check_ollama(self) -> bool:
         if self._is_ollama_available is not None:
@@ -38,24 +42,50 @@ class LocalInferenceClient:
         try:
             async with httpx.AsyncClient(timeout=1.5) as client:
                 res = await client.get(f"{self.base_url}/api/tags")
-                self._is_ollama_available = (res.status_code == 200)
+                if res.status_code == 200:
+                    self._is_ollama_available = True
+                    models_data = res.json().get("models", [])
+                    self._available_models = [m.get("name", "") for m in models_data]
+                else:
+                    self._is_ollama_available = False
         except Exception:
             self._is_ollama_available = False
         return self._is_ollama_available
+
+    def select_model(self, prompt: str) -> str:
+        """Dynamically routes across Multi-Model Mixture of Experts (MoE) tier."""
+        p_lower = prompt.lower()
+        target = self.fast_model
+
+        # 1. Heavyweight Deep Reasoning (Algorithms, AST, proofs, architecture)
+        if any(k in p_lower for k in ["algorithm", "complexity", "big-o", "proof", "architecture", "deep reason", "derive"]):
+            target = self.reasoning_model
+        # 2. Conversational & Empathetic Brain (Sentiment, self-conscious reflection, dialogue)
+        elif any(k in p_lower for k in ["feel", "frustrated", "empathy", "who are you", "conscious", "philosophy", "stressed"]):
+            target = self.chat_model
+        # 3. Default Fast computer control
+        else:
+            target = self.fast_model
+
+        if self._available_models and not any(target in m for m in self._available_models):
+            target = self.model
+        return target
 
     async def _call_ollama(
         self,
         prompt: str,
         system: Optional[str] = None,
         temperature: float = 0.4,
-        timeout: float = 20.0
+        timeout: float = 20.0,
+        model_override: Optional[str] = None
     ) -> Optional[str]:
-        """Calls local Ollama API for text generation."""
+        """Calls local Ollama API for text generation using MoE routed model."""
         if not await self._check_ollama():
             return None
         try:
+            chosen_model = model_override or self.select_model(prompt)
             payload = {
-                "model": self.model,
+                "model": chosen_model,
                 "prompt": prompt,
                 "stream": False,
                 "options": {
@@ -107,64 +137,142 @@ class LocalInferenceClient:
         perception_match = re.search(r"<current_perception>\s*(.*?)\s*</current_perception>", global_state_prompt, re.DOTALL)
         user_input = perception_match.group(1).lower() if perception_match else global_state_prompt.lower()
 
-        # 1. Media Control (pause, resume, play, skip, next)
-        if any(k in user_input for k in ["pause song", "pause music", "pause audio", "pause the", "stop song", "stop music"]):
+        # 1. Terminal / Shell launch (Interactive visible PowerShell / Windows Terminal)
+        if any(k in user_input for k in [
+            "open a new terminal", "open terminal", "launch terminal", "new terminal",
+            "open powershell", "launch powershell", "open console", "new console", "open cmd", "launch cmd"
+        ]):
+            target_loc = "desktop" if "desktop" in user_input else "."
+            return {"confidence": 0.99, "action": {"action": "launch_terminal", "resource": target_loc}}
+
+        # 2. Open / Launch Applications
+        if any(k in user_input for k in ["open notepad", "launch notepad"]):
+            return {"confidence": 0.98, "action": {"action": "launch_application", "resource": "notepad"}}
+        if any(k in user_input for k in ["open calc", "launch calc", "open calculator"]):
+            return {"confidence": 0.98, "action": {"action": "launch_application", "resource": "calc"}}
+        if any(k in user_input for k in ["open brave", "launch brave"]):
+            return {"confidence": 0.98, "action": {"action": "launch_application", "resource": "brave"}}
+        if any(k in user_input for k in ["open explorer", "launch explorer"]):
+            return {"confidence": 0.98, "action": {"action": "launch_application", "resource": "explorer"}}
+
+        # 3. Master Volume & Mute Controls (hardware level)
+        vol_match = re.search(r"\b(?:set\s+volume\s+to|volume\s+to|change\s+volume\s+to|volume\s+at)\s+(\d{1,3})", user_input)
+        if vol_match:
+            vol_lvl = int(vol_match.group(1))
+            return {"confidence": 0.99, "action": {"action": "set_volume", "level": vol_lvl}}
+        if any(k in user_input for k in ["mute audio", "mute volume", "mute the sound", "unmute audio", "silence audio", "toggle mute", "mute laptop", "unmute", "mute system", "mute sound"]):
+            return {"confidence": 0.99, "action": {"action": "toggle_mute"}}
+        if any(k in user_input for k in ["what is the volume", "check volume", "current volume", "get volume"]):
+            return {"confidence": 0.98, "action": {"action": "get_volume"}}
+
+        # 4. Media Control (Pause, Stop, Resume, Next, Prev)
+        is_stop_or_pause = any(w in user_input for w in ["stop", "pause", "halt", "turn off"])
+        is_media_ref = any(w in user_input for w in ["song", "music", "audio", "brave", "track", "playback"])
+        
+        if is_stop_or_pause and is_media_ref:
             return {"confidence": 0.99, "action": {"action": "media_control", "command": "pause"}}
-        if any(k in user_input for k in ["resume song", "resume music", "play song", "play music", "unpause"]):
+        if user_input.strip() in [
+            "stop the song", "pause the song", "stop song", "pause song", "stop the brave song",
+            "stop music", "pause music", "stop it", "pause it", "stop", "pause"
+        ]:
+            return {"confidence": 0.99, "action": {"action": "media_control", "command": "pause"}}
+
+        is_play_or_resume = any(w in user_input for w in ["resume", "play", "unpause"])
+        if is_play_or_resume and is_media_ref:
             return {"confidence": 0.99, "action": {"action": "media_control", "command": "play"}}
         if any(k in user_input for k in ["next song", "next track", "skip song", "skip track", "skip to next"]):
             return {"confidence": 0.99, "action": {"action": "media_control", "command": "next"}}
         if any(k in user_input for k in ["previous song", "previous track", "prev song", "last song"]):
             return {"confidence": 0.99, "action": {"action": "media_control", "command": "previous"}}
 
-        # 2. Media / Song / Audio query
-        if any(k in user_input for k in ["song", "music", "playing", "audio", "track", "media"]):
+        # 4. Media / Song Query (only when NOT asking to pause/stop)
+        if any(k in user_input for k in ["which song", "what song", "song playing", "what is playing", "current song", "current track", "who sings", "check song", "media playing"]):
             return {"confidence": 0.98, "action": {"action": "get_media"}}
+        if is_media_ref and not is_stop_or_pause:
+            return {"confidence": 0.95, "action": {"action": "get_media"}}
 
-        # 3. Active Focused Window query
+        # 5. Directory / Desktop Files Inspection
+        has_list_verb = any(v in user_input for v in ["ls", "dir", "list", "fetch", "check", "see", "show", "what is in", "what's in", "view", "contents"])
+        if "desktop" in user_input and (has_list_verb or "directory" in user_input or "folder" in user_input or "check it here" in user_input):
+            return {"confidence": 0.98, "action": {"action": "directory_list", "resource": "desktop"}}
+        if "downloads" in user_input and has_list_verb:
+            return {"confidence": 0.98, "action": {"action": "directory_list", "resource": "downloads"}}
+
+        # Explicit absolute path inspection (e.g. C:\Users\... or /desktop)
+        path_match = re.search(r"([a-zA-Z]:\\[^\s]+|/[a-zA-Z0-9_\-\./]+)", user_input)
+        if path_match and (has_list_verb or "check" in user_input or "here" in user_input):
+            extracted_path = path_match.group(1).rstrip(",;.")
+            return {"confidence": 0.98, "action": {"action": "directory_list", "resource": extracted_path}}
+
+        if any(k in user_input for k in ["list files", "directory list", "desktop files", "what files", "what is in my", "fetch everything you see"]):
+            target = "desktop" if "desktop" in user_input else "."
+            return {"confidence": 0.95, "action": {"action": "directory_list", "resource": target}}
+
+        # 6. Direct Command Run (e.g. 'run ls', 'run dir', 'execute ipconfig', 'powershell Get-Process')
+        run_match = re.search(r"^(?:run|execute|exec|eval)\s+(.+)$", user_input.strip(), re.IGNORECASE)
+        if run_match:
+            cmd = run_match.group(1).strip()
+            if any(cmd.lower().startswith(x) for x in ["ls /desktop", "dir /desktop", "ls desktop", "dir desktop", "ls c:\\users"]):
+                return {"confidence": 0.99, "action": {"action": "directory_list", "resource": "desktop"}}
+            return {"confidence": 0.95, "action": {"action": "command_run", "command": cmd}}
+
+        # 7. Active Focused Window query
         if any(k in user_input for k in ["active window", "focused window", "current window", "what am i looking at", "foreground window", "what window"]):
             return {"confidence": 0.98, "action": {"action": "get_active_window"}}
 
-        # 4. Clipboard query
+        # 8. Clipboard query
         if any(k in user_input for k in ["clipboard", "what did i copy", "read clipboard", "clipboard content"]):
             return {"confidence": 0.98, "action": {"action": "get_clipboard"}}
 
-        # 5. Open User Applications query
+        # 9. Open User Applications query
         if any(k in user_input for k in ["applications are open", "apps are open", "what apps", "open applications", "which applications", "running applications"]):
             return {"confidence": 0.98, "action": {"action": "get_user_applications", "top_n": 8}}
 
-        # 3. Process / Tasks query (check before generic 'ram' / 'cpu')
+        # 10. Process / Tasks query (check before generic 'ram' / 'cpu')
         if any(k in user_input for k in ["process", "processes", "task manager", "top memory", "top cpu", "eating ram", "what is running"]):
             return {"confidence": 0.96, "action": {"action": "get_processes", "top_n": 8}}
 
-        # 2. GPU / Graphics query
+        # 11. GPU / Graphics query
         if any(k in user_input for k in ["gpu", "vram", "graphics", "rtx", "3050", "video card", "nvidia"]):
             return {"confidence": 0.96, "action": {"action": "get_gpu"}}
 
-        # 3. CPU / Processor query
+        # 12. CPU / Processor query
         if any(k in user_input for k in ["cpu", "processor", "cores", "threads", "clock speed"]):
             return {"confidence": 0.96, "action": {"action": "get_cpu"}}
 
-        # 4. RAM / Memory query
+        # 13. RAM / Memory query
         if any(k in user_input for k in ["ram", "memory usage", "memory free", "memory leak", "how much ram", "memory status"]):
             return {"confidence": 0.96, "action": {"action": "get_ram"}}
 
-        # 5. Battery / Power query
+        # 14. Battery / Power query
         if any(k in user_input for k in ["battery", "power status", "charging", "plugged in", "charge level"]):
             return {"confidence": 0.96, "action": {"action": "get_battery"}}
 
-        # 6. Full Hardware Telemetry / System specs query
+        # 15. Full Hardware Telemetry / System specs query
         if any(k in user_input for k in ["telemetry", "system specs", "hardware status", "system status", "tell me about my system", "system info", "machine status", "specs"]):
             return {"confidence": 0.95, "action": {"action": "get_telemetry"}}
 
-        # 7. Git status
+        # 16. Git status
         if "git status" in user_input or "branch" in user_input or "repository status" in user_input:
             return {"confidence": 0.95, "action": {"action": "git_status", "resource": "."}}
 
-        # 8. Directory / Files query
-        if any(k in user_input for k in ["list files", "directory list", "desktop files", "what files", "what is in my"]):
-            target = "desktop" if "desktop" in user_input else "."
-            return {"confidence": 0.92, "action": {"action": "directory_list", "resource": target}}
+        # 17. Close / Kill Application
+        close_match = re.search(r"\b(?:close|kill|terminate|exit)\s+(notepad|calculator|calc|brave|chrome|edge|terminal|powershell|cmd|vscode|code)\b", user_input)
+        if close_match:
+            app_to_close = close_match.group(1)
+            return {"confidence": 0.99, "action": {"action": "close_application", "application": app_to_close}}
+
+        # 19. Take Screenshot
+        if any(k in user_input for k in ["take a screenshot", "capture screen", "capture display", "take screenshot", "save screenshot", "screenshot"]):
+            return {"confidence": 0.98, "action": {"action": "capture_screenshot"}}
+
+        # 20. Voice Persona Switch & Voice Control
+        persona_match = re.search(r"\b(?:switch|change|set)\s+(?:voice|persona)\s+(?:to\s+)?(jarvis|friday|edith|christopher|neerja|jenny|guy)\b", user_input)
+        if persona_match:
+            persona_name = persona_match.group(1)
+            return {"confidence": 0.99, "action": {"action": "voice_persona", "persona": persona_name}}
+        if any(k in user_input for k in ["stop speaking", "stop talking", "be quiet", "shut up", "silence voice"]):
+            return {"confidence": 0.99, "action": {"action": "voice_stop"}}
 
         if "internal heartbeat wake-up" in user_input:
             return {"confidence": 0.95, "action": {"action": "git_status", "resource": "."}}
@@ -220,9 +328,23 @@ class LocalInferenceClient:
                 # Check if thought suggests an action
                 action = None
                 if "Pragmatic" in p_label:
-                    if "git" in global_state_prompt.lower():
+                    lower_inp = global_state_prompt.lower()
+                    if "desktop" in lower_inp:
+                        action = {"action": "directory_list", "resource": "desktop"}
+                    elif any(w in lower_inp for w in ["terminal", "powershell", "console"]):
+                        action = {"action": "launch_terminal", "resource": "desktop"}
+                    elif any(w in lower_inp for w in ["song", "music", "audio", "track"]):
+                        if any(w in lower_inp for w in ["stop", "pause", "halt", "mute"]):
+                            action = {"action": "media_control", "command": "pause"}
+                        else:
+                            action = {"action": "get_media"}
+                    elif any(w in lower_inp for w in ["telemetry", "specs", "hardware"]):
+                        action = {"action": "get_telemetry"}
+                    elif any(w in lower_inp for w in ["app", "process"]):
+                        action = {"action": "get_user_applications", "top_n": 8}
+                    elif "git" in lower_inp and ("status" in lower_inp or "branch" in lower_inp):
                         action = {"action": "git_status", "resource": "."}
-                    elif "read" in global_state_prompt.lower() or "file" in global_state_prompt.lower():
+                    elif "read" in lower_inp or "file" in lower_inp:
                         action = {"action": "file_read", "resource": "config/core_self.yaml"}
 
                 candidates.append(CandidateThought(
@@ -242,7 +364,22 @@ class LocalInferenceClient:
             candidates = []
             for i in range(min(n, len(perspectives))):
                 p_name, base_text = perspectives[i]
-                action = {"action": "file_read", "resource": "config/core_self.yaml"} if i == 1 else None
+                action = None
+                if i == 1:
+                    lower_inp = global_state_prompt.lower()
+                    if "desktop" in lower_inp:
+                        action = {"action": "directory_list", "resource": "desktop"}
+                    elif any(w in lower_inp for w in ["terminal", "powershell", "console"]):
+                        action = {"action": "launch_terminal", "resource": "desktop"}
+                    elif any(w in lower_inp for w in ["song", "music", "audio", "track"]):
+                        if any(w in lower_inp for w in ["stop", "pause", "halt"]):
+                            action = {"action": "media_control", "command": "pause"}
+                        else:
+                            action = {"action": "get_media"}
+                    elif any(w in lower_inp for w in ["app", "process"]):
+                        action = {"action": "get_user_applications", "top_n": 8}
+                    else:
+                        action = {"action": "get_telemetry"}
                 candidates.append(
                     CandidateThought(
                         id=i,
@@ -402,19 +539,90 @@ class LocalInferenceClient:
                 )
 
             if act_name == "directory_list" and "items" in action_result:
-                target = action_result.get("target", "workspace")
+                target = action_result.get("target", "Directory")
                 items = action_result["items"]
-                item_strs = [
-                    f"  - {'📁' if it['is_dir'] else '📄'} **{it['name']}** ({round(it['size_bytes']/1024, 1)} KB)"
-                    for it in items[:15]
-                ]
-                return f"I inspected directory `{target}` ({len(items)} items found):\n\n" + "\n".join(item_strs)
+                dirs = [it for it in items if it.get("is_dir")]
+                files = [it for it in items if not it.get("is_dir")]
+                
+                lines = [f"### 📂 Directory Listing: `{target}` ({len(items)} items found)\n"]
+                if dirs:
+                    lines.append(f"**Folders ({len(dirs)}):**")
+                    for d in dirs[:15]:
+                        lines.append(f"- 📁 **{d['name']}**")
+                    if len(dirs) > 15:
+                        lines.append(f"- *...and {len(dirs) - 15} more folders*")
+                    lines.append("")
+                if files:
+                    lines.append(f"**Files ({len(files)}):**")
+                    for f in files[:25]:
+                        sz = f.get("size_human", f"{round(f.get('size_bytes', 0)/1024, 1)} KB")
+                        lines.append(f"- 📄 **{f['name']}** ({sz})")
+                    if len(files) > 25:
+                        lines.append(f"- *...and {len(files) - 25} more files*")
+                
+                return "\n".join(lines)
 
             if act_name == "media_control" and "result" in action_result:
                 r = action_result["result"]
+                act = r.get("action", "Updated")
+                track = r.get("track", "Active Media")
+                app = r.get("app", "Media Player")
+                return f"I executed media command **{act}** on `{app}` for {track}.\n\nPlayback command was dispatched via Windows GSMTC / media keys."
+
+            if act_name == "launch_terminal" and "result" in action_result:
+                r = action_result["result"]
                 if r.get("status") == "SUCCESS":
-                    return f"I executed media command: **{r.get('action')}** on `{r.get('app')}`."
-                return f"Media control update: {r.get('message', r.get('error', 'Unable to control active media session.'))}"
+                    return f"I have launched an interactive visible PowerShell terminal window on your desktop (PID `{r.get('pid')}`). It is synchronized and open at `{r.get('working_dir')}`."
+                return f"Failed to spawn terminal: {r.get('error')}"
+
+            if act_name == "launch_application" and "result" in action_result:
+                r = action_result["result"]
+                if r.get("status") == "SUCCESS":
+                    return f"I have launched desktop application `{action_result.get('application')}` (PID `{r.get('pid')}`)."
+                return f"Failed to launch application: {r.get('error')}"
+
+            if act_name == "command_run":
+                cmd = action_result.get("command", "")
+                stdout = action_result.get("stdout", "")
+                stderr = action_result.get("stderr", "")
+                code = action_result.get("exit_code", 0)
+                body = stdout if stdout else (stderr if stderr else "Command finished with empty output.")
+                return f"I executed shell command `{cmd}` (Exit Code {code}):\n\n```powershell\n{body}\n```"
+
+            if act_name == "set_volume" and "result" in action_result:
+                r = action_result["result"]
+                return f"I adjusted master audio volume to **{r.get('volume', 50)}%**."
+
+            if act_name == "get_volume" and "result" in action_result:
+                r = action_result["result"]
+                mute_str = "Muted" if r.get("muted") else "Active"
+                return f"Master audio volume is currently **{r.get('volume', 50)}%** ({mute_str})."
+
+            if act_name == "toggle_mute" and "result" in action_result:
+                r = action_result["result"]
+                return f"I updated audio state: **{r.get('message', 'Audio state toggled')}**."
+
+            if act_name == "close_application" and "result" in action_result:
+                r = action_result["result"]
+                return f"{r.get('message')}"
+
+            if act_name == "capture_screenshot" and "result" in action_result:
+                r = action_result["result"]
+                if r.get("status") == "SUCCESS":
+                    return f"I captured a full screen snapshot and saved it to `{r.get('path')}`."
+                return f"Screenshot capture error: {r.get('error')}"
+
+            if act_name == "type_into_window" and "result" in action_result:
+                r = action_result["result"]
+                return f"I typed {r.get('typed_length', 0)} characters into your active foreground window."
+
+            if act_name == "voice_persona" and "result" in action_result:
+                r = action_result["result"]
+                p = action_result.get("persona", "jarvis")
+                return f"Voice persona switched to **{p.capitalize()}** ({r.get('description', 'Studio Neural Voice')})."
+
+            if act_name == "voice_stop":
+                return "Voice speech halted immediately."
 
             if act_name == "get_active_window" and "window" in action_result:
                 w = action_result["window"]

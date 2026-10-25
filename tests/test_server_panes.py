@@ -12,6 +12,9 @@ def test_dashboard_html():
     assert "tab-graph" in res.text
     assert "tab-skills" in res.text
     assert "tab-governance" in res.text
+    assert "tab-execution" in res.text
+    assert "btn-side-toggle" in res.text
+    assert "ticker-voice" in res.text
 
 def test_working_memory_api():
     # 1. Get all blocks
@@ -128,3 +131,84 @@ def test_panic_killswitch_api():
     res_st2 = client.get("/api/governance/panic")
     assert res_st2.status_code == 200
     assert res_st2.json()["panic_active"] is False
+
+def test_execution_api():
+    # 1. Pipeline status
+    res_pipe = client.get("/api/execution/pipeline")
+    assert res_pipe.status_code == 200
+    pipe_data = res_pipe.json()
+    assert "stages" in pipe_data
+    assert len(pipe_data["stages"]) == 9
+    assert "tick_id" in pipe_data
+    assert "temperature" in pipe_data
+
+    # 2. Daemons inspector
+    res_daemons = client.get("/api/execution/daemons")
+    assert res_daemons.status_code == 200
+    daemons_data = res_daemons.json()
+    assert isinstance(daemons_data, dict)
+    assert "uvicorn_server" in daemons_data
+    assert "ambient_worker" in daemons_data
+    assert "stall_breaker" in daemons_data
+    assert "sleep_daemon" in daemons_data
+
+    # 3. Processes inspector
+    res_proc = client.get("/api/execution/processes")
+    assert res_proc.status_code == 200
+    proc_data = res_proc.json()
+    assert "cortex_pid" in proc_data
+    assert "total_system_processes" in proc_data
+    assert proc_data["total_system_processes"] > 0
+    assert "cortex_children" in proc_data
+    assert "desktop_applications" in proc_data
+
+    # 4. Terminal sandbox execution (safe command)
+    res_term = client.post("/api/execution/terminal", json={"command": "dir"})
+    assert res_term.status_code == 200
+    term_data = res_term.json()
+    assert term_data["status"] == "SUCCESS"
+    assert term_data["exit_code"] == 0
+    assert "execution_time_ms" in term_data
+
+    # 5. Terminal sandbox execution with blocked command (policy deny)
+    res_deny = client.post("/api/execution/terminal", json={"command": "cat .ssh/id_rsa"})
+    assert res_deny.status_code == 200
+    deny_data = res_deny.json()
+    assert deny_data["status"] == "DENIED"
+
+    # 6. Terminal sandbox execution with failing command triggering automatic rollback
+    res_fail = client.post("/api/execution/terminal", json={"command": "dir non_existent_folder_xyz_12345"})
+    assert res_fail.status_code == 200
+    fail_data = res_fail.json()
+    assert fail_data["status"] == "FAILED_ROLLED_BACK"
+
+def test_voice_api():
+    # 1. Voice status
+    res_status = client.get("/api/voice/status")
+    assert res_status.status_code == 200
+    v_data = res_status.json()
+    assert "enabled" in v_data
+    assert "active_persona" in v_data
+    assert "personas" in v_data
+    assert len(v_data["personas"]) >= 5
+
+    # 2. Switch persona
+    res_persona = client.post("/api/voice/persona", json={"persona": "jarvis"})
+    assert res_persona.status_code == 200
+    assert res_persona.json()["status"] == "SUCCESS"
+    assert res_persona.json()["active_persona"] == "jarvis"
+
+    # 3. Toggle voice
+    res_toggle = client.post("/api/voice/toggle", json={"enabled": False})
+    assert res_toggle.status_code == 200
+    assert res_toggle.json()["enabled"] is False
+
+    res_toggle_back = client.post("/api/voice/toggle", json={"enabled": True})
+    assert res_toggle_back.status_code == 200
+    assert res_toggle_back.json()["enabled"] is True
+
+    # 4. Stop voice (barge-in)
+    res_stop = client.post("/api/voice/stop")
+    assert res_stop.status_code == 200
+    assert res_stop.json()["status"] == "SUCCESS"
+

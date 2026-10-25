@@ -63,7 +63,22 @@ class PolicyEngine:
         "get_processes",
         "find_process",
         "get_media",
-        "get_user_applications"
+        "get_user_applications",
+        "get_active_window",
+        "get_clipboard",
+        "set_clipboard",
+        "media_control",
+        "launch_terminal",
+        "launch_application",
+        "command_run",
+        "set_volume",
+        "get_volume",
+        "toggle_mute",
+        "close_application",
+        "type_into_window",
+        "voice_speak",
+        "voice_stop",
+        "voice_persona"
     }
 
     def __init__(self, cedar_policy_path: Optional[str] = None):

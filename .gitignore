@@ -26,6 +26,14 @@ wheels/
 .coverage
 htmlcov/
 
+# Voice-Lab & Local Audio
+voice-lab/oi_env/
+voice-lab/sandbox/
+voice-lab/assistant_memory/
+*.mp3
+*.wav
+data/
+
 # CortexOS Local Storage & Runtime Artifacts
 .cortex/
 cortex_memory.sqlite*

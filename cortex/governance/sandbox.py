@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from cortex.governance.checkpoint import GitShadowCheckpointManager
@@ -123,3 +124,113 @@ class SandboxRunner:
     ) -> Dict[str, Any]:
         """Runs a crystallized, verified skill with safety containment."""
         return await self.run_with_checkpoint(task_id, skill_path, timeout=30)
+
+    async def run_command_in_sandbox(
+        self,
+        command_str: str,
+        task_id: Optional[str] = None,
+        timeout: int = 30
+    ) -> Dict[str, Any]:
+        """
+        Executes a shell command inside governed sandbox with Cedar policy evaluation,
+        shadow git checkpointing, and execution telemetry.
+        """
+        tid = task_id or f"cmd-{int(time.time() * 1000)}"
+        
+        # 1. Policy check
+        action = {"action": "command_run", "resource": command_str}
+        evaluation = self.policy_engine.evaluate(action, {"checkpoint_active": True})
+        if evaluation.status == PolicyVerdict.DENY:
+            return {
+                "task_id": tid,
+                "command": command_str,
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": f"Policy DENY: {evaluation.reason}",
+                "status": "DENIED",
+                "execution_time_ms": 0.0,
+                "checkpoint_sha": None
+            }
+        elif evaluation.status == PolicyVerdict.ESCALATE:
+            return {
+                "task_id": tid,
+                "command": command_str,
+                "exit_code": -1,
+                "stdout": "",
+                "stderr": f"Policy ESCALATE required: {evaluation.reason}",
+                "status": "ESCALATE_REQUIRED",
+                "execution_time_ms": 0.0,
+                "checkpoint_sha": None
+            }
+
+        # 2. Checkpoint before execution
+        pre_sha = self.checkpoint_mgr.create_checkpoint(tid, "pre")
+        clean_env = self._sanitize_env()
+        t0 = time.time()
+
+        try:
+            proc = subprocess.run(
+                command_str,
+                shell=True,
+                cwd=str(self.workspace_dir),
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                env=clean_env
+            )
+            duration_ms = round((time.time() - t0) * 1000, 2)
+            stdout = proc.stdout
+            stderr = proc.stderr
+            exit_code = proc.returncode
+
+            if exit_code != 0:
+                self.checkpoint_mgr.create_checkpoint(tid, "failed")
+                report = self.checkpoint_mgr.create_failure_report(tid)
+                self.checkpoint_mgr.restore_checkpoint(tid, "pre")
+                return {
+                    "task_id": tid,
+                    "command": command_str,
+                    "exit_code": exit_code,
+                    "stdout": stdout,
+                    "stderr": stderr,
+                    "status": "FAILED_ROLLED_BACK",
+                    "execution_time_ms": duration_ms,
+                    "checkpoint_sha": pre_sha[:10],
+                    "diff_report": report
+                }
+
+            return {
+                "task_id": tid,
+                "command": command_str,
+                "exit_code": 0,
+                "stdout": stdout,
+                "stderr": stderr,
+                "status": "SUCCESS",
+                "execution_time_ms": duration_ms,
+                "checkpoint_sha": pre_sha[:10]
+            }
+
+        except subprocess.TimeoutExpired:
+            self.checkpoint_mgr.restore_checkpoint(tid, "pre")
+            return {
+                "task_id": tid,
+                "command": command_str,
+                "exit_code": -2,
+                "stdout": "",
+                "stderr": f"Command timed out after {timeout} seconds.",
+                "status": "TIMEOUT_ROLLED_BACK",
+                "execution_time_ms": round((time.time() - t0) * 1000, 2),
+                "checkpoint_sha": pre_sha[:10]
+            }
+        except Exception as e:
+            self.checkpoint_mgr.restore_checkpoint(tid, "pre")
+            return {
+                "task_id": tid,
+                "command": command_str,
+                "exit_code": -3,
+                "stdout": "",
+                "stderr": f"Sandbox execution error: {str(e)}",
+                "status": "ERROR_ROLLED_BACK",
+                "execution_time_ms": round((time.time() - t0) * 1000, 2),
+                "checkpoint_sha": pre_sha[:10]
+            }

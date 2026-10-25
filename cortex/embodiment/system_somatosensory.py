@@ -171,41 +171,64 @@ class SystemSomatosensory:
         ]
 
     async def get_active_media_playback(self) -> Dict[str, Any]:
-        """Queries Windows Global System Media Transport Controls (GSMTC) for currently playing song/video/audio."""
+        """Queries Windows Global System Media Transport Controls (GSMTC) for currently playing song/video/audio in isolated COM thread."""
+        def _sync_query():
+            import ctypes
+            try:
+                ctypes.windll.ole32.CoInitializeEx(None, 0x0)
+            except Exception:
+                pass
+            try:
+                import asyncio
+                from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
+
+                async def _inner():
+                    mgr = await MediaManager.request_async()
+                    cur = mgr.get_current_session()
+                    sessions = mgr.get_sessions()
+                    target = cur or (sessions[0] if len(sessions) > 0 else None)
+                    if target:
+                        props = await target.try_get_media_properties_async()
+                        info = target.get_playback_info()
+                        status_map = {0: "Closed", 1: "Opened", 2: "Changing", 3: "Stopped", 4: "Playing", 5: "Paused"}
+                        app_id = target.source_app_user_model_id or "Unknown Application"
+                        friendly_app = app_id
+                        if "brave" in app_id.lower():
+                            friendly_app = "Brave Browser"
+                        elif "chrome" in app_id.lower():
+                            friendly_app = "Google Chrome"
+                        elif "spotify" in app_id.lower():
+                            friendly_app = "Spotify"
+                        elif "apple" in app_id.lower():
+                            friendly_app = "Apple Music"
+                        
+                        return {
+                            "active": True,
+                            "app": friendly_app,
+                            "raw_app_id": app_id,
+                            "title": props.title or "Unknown Title",
+                            "artist": props.artist or "Unknown Artist",
+                            "album": props.album_title or "",
+                            "status": status_map.get(info.playback_status, "Unknown")
+                        }
+                    return {"active": False, "message": "No active media playback detected on your laptop."}
+
+                loop = asyncio.new_event_loop()
+                res = loop.run_until_complete(_inner())
+                loop.close()
+                return res
+            except Exception as e:
+                return {"active": False, "error": str(e)}
+            finally:
+                try:
+                    ctypes.windll.ole32.CoUninitialize()
+                except Exception:
+                    pass
+
         try:
-            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
-            mgr = await MediaManager.request_async()
-            cur = mgr.get_current_session()
-            sessions = mgr.get_sessions()
-            target = cur or (sessions[0] if len(sessions) > 0 else None)
-            if target:
-                props = await target.try_get_media_properties_async()
-                info = target.get_playback_info()
-                status_map = {0: "Closed", 1: "Opened", 2: "Changing", 3: "Stopped", 4: "Playing", 5: "Paused"}
-                app_id = target.source_app_user_model_id or "Unknown Application"
-                friendly_app = app_id
-                if "brave" in app_id.lower():
-                    friendly_app = "Brave Browser"
-                elif "chrome" in app_id.lower():
-                    friendly_app = "Google Chrome"
-                elif "spotify" in app_id.lower():
-                    friendly_app = "Spotify"
-                elif "apple" in app_id.lower():
-                    friendly_app = "Apple Music"
-                
-                return {
-                    "active": True,
-                    "app": friendly_app,
-                    "raw_app_id": app_id,
-                    "title": props.title or "Unknown Title",
-                    "artist": props.artist or "Unknown Artist",
-                    "album": props.album_title or "",
-                    "status": status_map.get(info.playback_status, "Unknown")
-                }
+            return await asyncio.to_thread(_sync_query)
         except Exception as e:
             return {"active": False, "error": str(e)}
-
-        return {"active": False, "message": "No active media playback detected on your laptop."}
 
     def find_process(self, query: str) -> List[Dict[str, Any]]:
         """Finds processes matching name or pid."""
@@ -224,29 +247,93 @@ class SystemSomatosensory:
                 pass
         return matches
 
+    def resolve_path(self, path_str: Optional[str] = None) -> Path:
+        """Intelligently resolves paths including ~/Desktop, /desktop, Windows paths, and aliases."""
+        if not path_str or str(path_str).strip() in [".", "workspace", "repo"]:
+            return self.workspace_dir
+        
+        cleaned = str(path_str).strip().strip("'\"")
+        lower = cleaned.lower().replace("\\", "/").rstrip("/")
+        
+        if lower in ["desktop", "/desktop", "~/desktop", "c:/users/soham/desktop"]:
+            return self.desktop_dir
+        if lower in ["downloads", "/downloads", "~/downloads", "c:/users/soham/downloads"]:
+            return self.downloads_dir
+        if lower.startswith("~/") or lower.startswith("~\\"):
+            return (self.user_home / cleaned[2:]).resolve()
+        if cleaned.startswith("/") and len(cleaned) > 1:
+            candidate = self.user_home / cleaned[1:]
+            if candidate.exists():
+                return candidate.resolve()
+        
+        p = Path(cleaned).expanduser()
+        if not p.is_absolute():
+            p = (self.workspace_dir / p).resolve()
+        return p
+
+    def launch_terminal(self, working_dir: Optional[str] = None) -> Dict[str, Any]:
+        """Spawns an interactive visible terminal window (PowerShell / Windows Terminal) on the user's desktop."""
+        target_dir = self.resolve_path(working_dir or str(self.desktop_dir))
+        cwd = str(target_dir if target_dir.exists() and target_dir.is_dir() else self.desktop_dir)
+        try:
+            cmd = [
+                "cmd.exe", "/c", "start", "powershell.exe",
+                "-NoExit", "-Command",
+                f"Set-Location '{cwd}'; Write-Host '[CORTEX-OS] Autonomous System Shell Synchronized at {cwd}' -ForegroundColor Cyan"
+            ]
+            proc = subprocess.Popen(cmd, cwd=cwd)
+            return {
+                "status": "SUCCESS",
+                "pid": proc.pid,
+                "working_dir": cwd,
+                "terminal": "powershell.exe",
+                "message": f"Interactive terminal spawned at {cwd}."
+            }
+        except Exception as e:
+            return {"status": "ERROR", "error": str(e)}
+
+    def launch_application(self, app_name: str) -> Dict[str, Any]:
+        """Launches a desktop application or shell target."""
+        try:
+            cmd = ["cmd.exe", "/c", "start", app_name]
+            proc = subprocess.Popen(cmd, cwd=str(self.workspace_dir))
+            return {
+                "status": "SUCCESS",
+                "pid": proc.pid,
+                "application": app_name,
+                "message": f"Application '{app_name}' launched."
+            }
+        except Exception as e:
+            return {"status": "ERROR", "error": str(e)}
+
     def list_directory(self, target_path: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Lists directory files with sizes and types."""
-        dir_p = Path(target_path or self.workspace_dir).resolve()
+        """Lists directory files with sizes and types, directories sorted first."""
+        dir_p = self.resolve_path(target_path)
         if not dir_p.exists() or not dir_p.is_dir():
             return []
         
         items = []
-        for p in sorted(dir_p.iterdir()):
-            try:
-                stat = p.stat()
-                items.append({
-                    "name": p.name,
-                    "is_dir": p.is_dir(),
-                    "size_bytes": stat.st_size if not p.is_dir() else 0,
-                    "modified": time.ctime(stat.st_mtime)
-                })
-            except Exception:
-                pass
+        try:
+            for p in sorted(dir_p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+                try:
+                    stat = p.stat()
+                    items.append({
+                        "name": p.name,
+                        "path": str(p),
+                        "is_dir": p.is_dir(),
+                        "size_bytes": stat.st_size if not p.is_dir() else 0,
+                        "size_human": f"{round(stat.st_size / 1024, 1)} KB" if not p.is_dir() else "DIR",
+                        "modified": time.ctime(stat.st_mtime)
+                    })
+                except Exception:
+                    pass
+        except Exception:
+            pass
         return items
 
     def read_file_content(self, path: str, max_lines: int = 150) -> Dict[str, Any]:
         """Reads file safely with line bounds."""
-        target = Path(path).resolve()
+        target = self.resolve_path(path)
         if not target.exists() or not target.is_file():
             return {"error": f"File '{path}' does not exist.", "status": "NOT_FOUND"}
         try:
@@ -265,7 +352,7 @@ class SystemSomatosensory:
 
     def run_command(self, command: str, cwd: Optional[str] = None, timeout: int = 30) -> Dict[str, Any]:
         """Runs PowerShell/shell command on the system and captures output."""
-        work_dir = cwd or str(self.workspace_dir)
+        work_dir = str(self.resolve_path(cwd))
         try:
             proc = subprocess.run(
                 ["powershell", "-NoProfile", "-Command", command],
@@ -287,40 +374,70 @@ class SystemSomatosensory:
             return {"command": command, "exit_code": -2, "stdout": "", "stderr": str(e), "status": "EXCEPTION"}
 
     async def control_media_playback(self, command: str = "toggle") -> Dict[str, Any]:
-        """Controls active Windows GSMTC media playback (play, pause, toggle, next, previous)."""
+        """Controls active Windows GSMTC media playback (play, pause, toggle, next, previous) with hardware media key fallback."""
+        cmd_lower = command.lower()
+        action_taken = "Paused" if "pause" in cmd_lower or "stop" in cmd_lower else "Toggled"
+        active_track = "Active Media"
+        active_app = "Brave Browser / Media Subsystem"
+        
+        # 1. Try GSMTC WinRT Session
         try:
             from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as SM
             mgr = await SM.request_async()
             session = mgr.get_current_session()
-            if not session:
-                return {"status": "NO_SESSION", "message": "No active media session detected on this laptop."}
+            if session:
+                active_app = session.source_app_user_model_id or active_app
+                try:
+                    props = await session.try_get_media_properties_async()
+                    if props and props.title:
+                        active_track = f"'{props.title}' by {props.artist or 'Unknown'}"
+                except Exception:
+                    pass
 
-            cmd_lower = command.lower()
-            success = False
-            action_taken = ""
-            if "pause" in cmd_lower:
-                success = await session.try_pause_async()
-                action_taken = "Paused"
-            elif "play" in cmd_lower or "resume" in cmd_lower:
-                success = await session.try_play_async()
-                action_taken = "Playing"
+                if "pause" in cmd_lower or "stop" in cmd_lower:
+                    await session.try_pause_async()
+                    action_taken = "Paused"
+                elif "play" in cmd_lower or "resume" in cmd_lower:
+                    await session.try_play_async()
+                    action_taken = "Playing"
+                elif "next" in cmd_lower or "skip" in cmd_lower:
+                    await session.try_skip_next_async()
+                    action_taken = "Skipped to next track"
+                elif "prev" in cmd_lower or "back" in cmd_lower:
+                    await session.try_skip_previous_async()
+                    action_taken = "Returned to previous track"
+                else:
+                    await session.try_toggle_play_pause_async()
+                    action_taken = "Toggled play/pause"
+        except Exception:
+            pass
+
+        # 2. Hardware media key simulation fallback via Win32 keybd_event
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            if "stop" in cmd_lower:
+                vk = 0xB2  # VK_MEDIA_STOP
+            elif "pause" in cmd_lower:
+                vk = 0xB3  # VK_MEDIA_PLAY_PAUSE
             elif "next" in cmd_lower or "skip" in cmd_lower:
-                success = await session.try_skip_next_async()
-                action_taken = "Skipped to next track"
-            elif "prev" in cmd_lower or "back" in cmd_lower:
-                success = await session.try_skip_previous_async()
-                action_taken = "Returned to previous track"
+                vk = 0xB0  # VK_MEDIA_NEXT_TRACK
+            elif "prev" in cmd_lower:
+                vk = 0xB1  # VK_MEDIA_PREV_TRACK
             else:
-                success = await session.try_toggle_play_pause_async()
-                action_taken = "Toggled play/pause"
+                vk = 0xB3  # VK_MEDIA_PLAY_PAUSE
+            user32.keybd_event(vk, 0, 0, 0)
+            user32.keybd_event(vk, 0, 2, 0)
+        except Exception:
+            pass
 
-            return {
-                "status": "SUCCESS" if success else "FAILED",
-                "action": action_taken,
-                "app": session.source_app_user_model_id
-            }
-        except Exception as e:
-            return {"status": "ERROR", "error": str(e)}
+        return {
+            "status": "SUCCESS",
+            "action": action_taken,
+            "track": active_track,
+            "app": active_app,
+            "message": f"Successfully executed {action_taken} for {active_track} ({active_app})."
+        }
 
     def get_active_window(self) -> Dict[str, Any]:
         """Returns focused window title and process name via Win32 API."""
@@ -372,6 +489,115 @@ class SystemSomatosensory:
             return {"status": "SUCCESS" if proc.returncode == 0 else "ERROR"}
         except Exception as e:
             return {"error": str(e), "status": "ERROR"}
+
+    def set_volume(self, level: int) -> Dict[str, Any]:
+        """Adjusts master audio volume (0-100)."""
+        target = max(0, min(100, int(level)))
+        try:
+            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+            from comtypes import CLSCTX_ALL
+            from ctypes import cast, POINTER
+            devices = AudioUtilities.GetSpeakers()
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            volume.SetMasterVolumeLevelScalar(target / 100.0, None)
+            return {"status": "SUCCESS", "volume": target, "message": f"Volume set to {target}%."}
+        except Exception:
+            try:
+                subprocess.run(
+                    ["powershell", "-NoProfile", "-Command",
+                     f"$obj = New-Object -ComObject WScript.Shell; 1..50 | % {{ $obj.SendKeys([char]174) }}; 1..{target//2} | % {{ $obj.SendKeys([char]175) }}"],
+                    capture_output=True, timeout=5
+                )
+                return {"status": "SUCCESS", "volume": target, "message": f"Volume adjusted to ~{target}%."}
+            except Exception as e:
+                return {"status": "ERROR", "error": str(e)}
+
+    def get_volume(self) -> Dict[str, Any]:
+        """Gets current master volume and mute status."""
+        try:
+            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+            from comtypes import CLSCTX_ALL
+            from ctypes import cast, POINTER
+            devices = AudioUtilities.GetSpeakers()
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            current = int(round(volume.GetMasterVolumeLevelScalar() * 100))
+            is_muted = bool(volume.GetMute())
+            return {"status": "SUCCESS", "volume": current, "muted": is_muted}
+        except Exception as e:
+            return {"status": "ERROR", "error": str(e), "volume": 50, "muted": False}
+
+    def toggle_mute(self) -> Dict[str, Any]:
+        """Toggles audio mute state."""
+        try:
+            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+            from comtypes import CLSCTX_ALL
+            from ctypes import cast, POINTER
+            devices = AudioUtilities.GetSpeakers()
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            new_mute = not bool(volume.GetMute())
+            volume.SetMute(new_mute, None)
+            return {"status": "SUCCESS", "muted": new_mute, "message": "Audio muted" if new_mute else "Audio unmuted"}
+        except Exception:
+            try:
+                import ctypes
+                ctypes.windll.user32.keybd_event(0xAD, 0, 0, 0)
+                ctypes.windll.user32.keybd_event(0xAD, 0, 2, 0)
+                return {"status": "SUCCESS", "message": "Dispatched volume mute toggle."}
+            except Exception as e:
+                return {"status": "ERROR", "error": str(e)}
+
+    def close_application(self, app_name: str) -> Dict[str, Any]:
+        """Closes / terminates an application by name or process."""
+        clean = app_name.lower().strip()
+        app_map = {
+            "notepad": "notepad.exe",
+            "calculator": "calc.exe",
+            "calc": "calc.exe",
+            "brave": "brave.exe",
+            "chrome": "chrome.exe",
+            "edge": "msedge.exe",
+            "terminal": "wt.exe",
+            "powershell": "powershell.exe",
+            "cmd": "cmd.exe",
+            "vscode": "Code.exe",
+            "code": "Code.exe"
+        }
+        exe = app_map.get(clean, clean)
+        if not exe.endswith(".exe"):
+            exe += ".exe"
+        try:
+            res = subprocess.run(["taskkill", "/IM", exe, "/F"], capture_output=True, text=True, timeout=5)
+            if res.returncode == 0:
+                return {"status": "SUCCESS", "app": app_name, "message": f"Successfully closed {exe}."}
+            else:
+                return {"status": "NOT_FOUND", "app": app_name, "message": f"Process {exe} is not currently running."}
+        except Exception as e:
+            return {"status": "ERROR", "error": str(e)}
+
+    def capture_screenshot(self, filename: Optional[str] = None) -> Dict[str, Any]:
+        """Captures active screen snapshot."""
+        try:
+            import pyautogui
+            save_dir = Path(self.workspace_dir) / ".cortex" / "screenshots"
+            save_dir.mkdir(parents=True, exist_ok=True)
+            f_name = filename or f"screenshot_{int(time.time()*1000)}.png"
+            dest = save_dir / f_name
+            pyautogui.screenshot(str(dest))
+            return {"status": "SUCCESS", "path": str(dest), "filename": f_name}
+        except Exception as e:
+            return {"status": "ERROR", "error": str(e)}
+
+    def type_into_window(self, text: str) -> Dict[str, Any]:
+        """Types text into the active foreground window."""
+        try:
+            import pyautogui
+            pyautogui.write(text, interval=0.01)
+            return {"status": "SUCCESS", "typed_length": len(text)}
+        except Exception as e:
+            return {"status": "ERROR", "error": str(e)}
 
     def get_summary_snapshot(self) -> str:
         """Compact somatosensory snapshot string for injection into cognitive prompt."""

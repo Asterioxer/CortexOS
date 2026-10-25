@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 import numpy as np
 from cortex.embodiment.system_somatosensory import SystemSomatosensory
 from cortex.embodiment.stall_breaker import StallBreaker
+from cortex.embodiment.sentiment import CognitiveSentimentTracker
+from cortex.embodiment.voice import voice_engine, CortexVoiceEngine
 
 TransitionTag = Literal["[THINK_MORE]", "[RESPONSE]", "[NO_OP]"]
 
@@ -153,6 +155,8 @@ class GWACognitiveTickEngine:
         self.state = GlobalWorkspaceState()
         self.drive = IntrinsicDriveMonitor()
         self.stall_breaker = StallBreaker()
+        self.sentiment = CognitiveSentimentTracker()
+        self.voice = voice_engine
 
     async def run_cognitive_tick(
         self,
@@ -160,6 +164,24 @@ class GWACognitiveTickEngine:
         human_approval: bool = False
     ) -> TickResult:
         self.state.tick_id += 1
+
+        # Affective Tone & Sentiment Analysis
+        sentiment = self.sentiment.analyze(external_input or "")
+        if sentiment.is_stop_intent:
+            self.voice.stop()
+        if sentiment.primary_emotion in ["urgent", "frustrated"]:
+            self.state.current_temperature = sentiment.recommended_temperature
+
+        # Inject Affective State into Human Profile memory block
+        if sentiment.primary_emotion != "neutral":
+            try:
+                base_hp = self.wm.blocks["human_profile"].value.split("\n[Affective State]:")[0]
+                self.wm.blocks["human_profile"].value = (
+                    f"{base_hp}\n[Affective State]: Operator tone is {sentiment.primary_emotion.upper()} "
+                    f"(Urgency: {sentiment.urgency_score:.2f}). Preferred style: {sentiment.recommended_style}."
+                )
+            except Exception:
+                pass
 
         # Check Hardware Panic Killswitch before any cognitive perception/action
         if self.stall_breaker.is_panic_triggered():
@@ -174,6 +196,25 @@ class GWACognitiveTickEngine:
             )
         
         # PHASE 1: PERCEIVE & RETRIEVE (Attention Spotlight)
+        # Update live workspace_state block with real somatosensory telemetry
+        try:
+            win = self.somato.get_active_window()
+            media = await self.somato.get_active_media_playback()
+            media_desc = f"{media.get('title')} ({media.get('artist')}) [{media.get('status')}]" if media.get("active") else "Idle / Inactive"
+            telem = self.somato.get_hardware_telemetry()
+            
+            state_text = (
+                f"Machine: Soham's Windows 11 Laptop | User: {self.somato.user_name}\n"
+                f"Workspace: {self.somato.workspace_dir}\n"
+                f"Focused Window: \"{win.get('title', 'Shell')}\" ({win.get('process', 'system')}, PID {win.get('pid', 0)})\n"
+                f"Media Subsystem: {media_desc}\n"
+                f"Hardware Posture: CPU {telem['cpu']['percent']}% | RAM {telem['ram']['used_gb']}/{telem['ram']['total_gb']}GB ({telem['ram']['percent']}%) | GPU {telem['gpu'].get('name', 'iGPU')}"
+            )
+            self.wm.blocks["workspace_state"].value = state_text
+            self.wm.save()
+        except Exception:
+            pass
+
         rag_queries = await self.llm.generate_attention_queries(
             stm=self.state.stm_buffer[-5:], external_input=external_input
         )
@@ -381,14 +422,56 @@ class GWACognitiveTickEngine:
                 proc = subprocess.run(["git", "status", "-s"], capture_output=True, text=True)
                 return {"action": "git_status", "stdout": proc.stdout or "Working tree clean.", "status": "SUCCESS"}, None
 
+            elif action_type == "set_volume":
+                lvl = action.get("level", 50)
+                res = self.somato.set_volume(lvl)
+                return {"action": "set_volume", "result": res, "status": "SUCCESS"}, None
+
+            elif action_type == "get_volume":
+                res = self.somato.get_volume()
+                return {"action": "get_volume", "result": res, "status": "SUCCESS"}, None
+
+            elif action_type == "toggle_mute":
+                res = self.somato.toggle_mute()
+                return {"action": "toggle_mute", "result": res, "status": "SUCCESS"}, None
+
+            elif action_type == "close_application":
+                app_n = action.get("application") or resource or ""
+                res = self.somato.close_application(app_n)
+                return {"action": "close_application", "application": app_n, "result": res, "status": "SUCCESS"}, None
+
+            elif action_type == "capture_screenshot":
+                fn = action.get("filename")
+                res = self.somato.capture_screenshot(fn)
+                return {"action": "capture_screenshot", "result": res, "status": "SUCCESS"}, None
+
+            elif action_type == "type_into_window":
+                t = action.get("text") or resource or ""
+                res = self.somato.type_into_window(t)
+                return {"action": "type_into_window", "text": t, "result": res, "status": "SUCCESS"}, None
+
+            elif action_type == "voice_persona":
+                p_name = action.get("persona") or resource or "jarvis"
+                res = self.voice.set_persona(p_name)
+                return {"action": "voice_persona", "persona": p_name, "result": res, "status": "SUCCESS"}, None
+
+            elif action_type == "voice_stop":
+                self.voice.stop()
+                return {"action": "voice_stop", "status": "SUCCESS", "message": "Voice audio halted."}, None
+
+            elif action_type == "launch_terminal":
+                res = self.somato.launch_terminal(resource)
+                return {"action": "launch_terminal", "result": res, "status": "SUCCESS"}, None
+
+            elif action_type == "launch_application":
+                app_target = resource or action.get("application") or "powershell.exe"
+                res = self.somato.launch_application(app_target)
+                return {"action": "launch_application", "application": app_target, "result": res, "status": "SUCCESS"}, None
+
             elif action_type == "directory_list":
-                target = resource
-                if target in ["desktop", "Desktop"]:
-                    target = str(self.somato.desktop_dir)
-                elif target in ["downloads", "Downloads"]:
-                    target = str(self.somato.downloads_dir)
-                items = self.somato.list_directory(target or ".")
-                return {"action": "directory_list", "target": target, "items": items[:25], "count": len(items), "status": "SUCCESS"}, None
+                target_p = self.somato.resolve_path(resource)
+                items = self.somato.list_directory(str(target_p))
+                return {"action": "directory_list", "target": str(target_p), "items": items[:35], "count": len(items), "status": "SUCCESS"}, None
 
             elif action_type == "file_read":
                 res = self.somato.read_file_content(resource)
