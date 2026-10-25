@@ -18,6 +18,9 @@ class SystemSomatosensory:
         self.user_home = Path.home()
         self.desktop_dir = self.user_home / "Desktop"
         self.downloads_dir = self.user_home / "Downloads"
+        self._proc_cache_time = 0.0
+        self._cached_procs: List[Dict[str, Any]] = []
+        self._cached_apps: List[Dict[str, Any]] = []
 
     def get_hardware_telemetry(self) -> Dict[str, Any]:
         """Queries CPU, RAM, GPU, Disks, and Battery in <15ms."""
@@ -103,29 +106,12 @@ class SystemSomatosensory:
             pass
         return {"name": "Integrated/Unknown", "available": False}
 
-    def get_processes(self, top_n: int = 8, sort_by: str = "memory") -> List[Dict[str, Any]]:
-        """Returns top active processes by memory or CPU."""
-        procs = []
-        for p in psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent", "status"]):
-            try:
-                info = p.info
-                if info["name"]:
-                    procs.append({
-                        "pid": info["pid"],
-                        "name": info["name"],
-                        "cpu_pct": round(info.get("cpu_percent") or 0.0, 1),
-                        "mem_pct": round(info.get("memory_percent") or 0.0, 2),
-                        "status": info.get("status", "running")
-                    })
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
+    def _refresh_process_cache(self, force: bool = False):
+        """Single-pass high performance process and application scanner with TTL caching."""
+        now = time.time()
+        if not force and (now - self._proc_cache_time) < 5.0 and self._cached_procs:
+            return
 
-        key = "mem_pct" if sort_by == "memory" else "cpu_pct"
-        procs.sort(key=lambda x: x.get(key, 0), reverse=True)
-        return procs[:top_n]
-
-    def get_user_applications(self, top_n: int = 10) -> List[Dict[str, Any]]:
-        """Filters out low-level Windows kernel/system background services to report real user-facing desktop applications."""
         SYSTEM_SERVICES = {
             'system', 'registry', 'memcompression', 'smss.exe', 'csrss.exe', 'wininit.exe',
             'services.exe', 'lsass.exe', 'svchost.exe', 'fontdrvhost.exe', 'winlogon.exe',
@@ -136,39 +122,65 @@ class SystemSomatosensory:
             'wmiprvse.exe', 'conhost.exe', 'dashost.exe', 'dllhost.exe', 'msedgewebview2.exe'
         }
 
+        procs = []
         apps = {}
-        for p in psutil.process_iter(['pid', 'name', 'exe', 'memory_percent', 'cpu_percent']):
+        for p in psutil.process_iter(["pid", "name", "memory_percent", "cpu_percent"]):
             try:
-                name = p.info['name']
-                if not name or name.lower() in SYSTEM_SERVICES:
+                info = p.info
+                name = info.get("name")
+                if not name:
                     continue
-                lower_name = name.lower()
-                if lower_name not in apps:
-                    apps[lower_name] = {
-                        'name': name,
-                        'pids': [p.info['pid']],
-                        'mem_pct': p.info.get('memory_percent') or 0.0,
-                        'cpu_pct': p.info.get('cpu_percent') or 0.0,
-                        'exe': p.info.get('exe') or ''
-                    }
-                else:
-                    apps[lower_name]['pids'].append(p.info['pid'])
-                    apps[lower_name]['mem_pct'] += (p.info.get('memory_percent') or 0.0)
-                    apps[lower_name]['cpu_pct'] += (p.info.get('cpu_percent') or 0.0)
+                mem = info.get("memory_percent") or 0.0
+                cpu = info.get("cpu_percent") or 0.0
+                procs.append({
+                    "pid": info["pid"],
+                    "name": name,
+                    "cpu_pct": round(cpu, 1),
+                    "mem_pct": round(mem, 2),
+                    "status": "running"
+                })
+                low = name.lower()
+                if low not in SYSTEM_SERVICES:
+                    if low not in apps:
+                        apps[low] = {
+                            "name": name,
+                            "pids": [info["pid"]],
+                            "mem_pct": mem,
+                            "cpu_pct": cpu,
+                            "exe": ""
+                        }
+                    else:
+                        apps[low]["pids"].append(info["pid"])
+                        apps[low]["mem_pct"] += mem
+                        apps[low]["cpu_pct"] += cpu
             except Exception:
                 pass
 
-        sorted_apps = sorted(apps.values(), key=lambda x: x['mem_pct'], reverse=True)
-        return [
+        self._cached_procs = procs
+        sorted_apps = sorted(apps.values(), key=lambda x: x["mem_pct"], reverse=True)
+        self._cached_apps = [
             {
-                'name': a['name'],
-                'process_count': len(a['pids']),
-                'mem_pct': round(a['mem_pct'], 2),
-                'cpu_pct': round(a['cpu_pct'], 1),
-                'exe': a['exe']
+                "name": a["name"],
+                "process_count": len(a["pids"]),
+                "mem_pct": round(a["mem_pct"], 2),
+                "cpu_pct": round(a["cpu_pct"], 1),
+                "exe": a["exe"]
             }
-            for a in sorted_apps[:top_n]
+            for a in sorted_apps
         ]
+        self._proc_cache_time = now
+
+    def get_processes(self, top_n: int = 8, sort_by: str = "memory") -> List[Dict[str, Any]]:
+        """Returns top active processes by memory or CPU."""
+        self._refresh_process_cache()
+        key = "mem_pct" if sort_by == "memory" else "cpu_pct"
+        sorted_p = sorted(self._cached_procs, key=lambda x: x.get(key, 0), reverse=True)
+        return sorted_p[:top_n]
+
+    def get_user_applications(self, top_n: int = 10) -> List[Dict[str, Any]]:
+        """Filters out low-level Windows kernel/system background services to report real user-facing desktop applications."""
+        self._refresh_process_cache()
+        return self._cached_apps[:top_n]
 
     async def get_active_media_playback(self) -> Dict[str, Any]:
         """Queries Windows Global System Media Transport Controls (GSMTC) for currently playing song/video/audio in isolated COM thread."""

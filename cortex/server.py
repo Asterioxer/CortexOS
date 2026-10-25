@@ -717,12 +717,33 @@ HTML_DASHBOARD = r"""
             flex-direction: column;
             height: 100%;
             overflow-y: auto;
-            padding: 30px 40px;
-            gap: 26px;
+            scroll-behavior: smooth;
+            padding: 28px 36px 120px 36px;
+            gap: 24px;
             z-index: 5;
             user-select: text;
         }
         .pane-scrollable.active { display: flex; }
+        .btn-subtle {
+            background: rgba(18, 28, 51, 0.7);
+            border: 1px solid var(--border-panel);
+            color: var(--accent-cyan);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-subtle:hover {
+            background: rgba(0, 229, 255, 0.2);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+            transform: scale(1.02);
+        }
         .pane-header {
             display: flex;
             justify-content: space-between;
@@ -1809,48 +1830,113 @@ HTML_DASHBOARD = r"""
                         <div class="pane-title"><span>⚙️</span> Live Execution, Daemons & Cognitive Pipeline Trace</div>
                         <div class="pane-desc">Real-time terminal execution in governed sandbox, background daemon inspection, child process tree monitoring, and 9-stage cognitive pipeline flow.</div>
                     </div>
-                    <div style="display:flex; gap:10px;">
+                    <div style="display:flex; gap:10px; align-items:center;">
                         <button class="btn-action" onclick="loadExecutionPane()"><span>🔄</span> Refresh Telemetry</button>
                         <button class="btn-action" onclick="clearTerminalScreen()"><span>🧹</span> Clear Terminal</button>
                     </div>
                 </div>
 
                 <!-- 1. The 9-Stage Cognitive Pipeline Architecture Stepper -->
-                <div class="exec-card tilt-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <div class="exec-card tilt-card" id="card-pipeline-wrap">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                         <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--accent-cyan); display:flex; align-items:center; gap:8px;">
-                            <span>🔄</span> End-to-End Cognitive Execution Pipeline Architecture
+                            <span>🌌</span> End-to-End Cognitive Execution Pipeline Architecture
                         </h3>
-                        <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">Discrete Dynamical Flow (9 Verified Stages)</span>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">Discrete Dynamical Flow (9 Verified Stages)</span>
+                            <button class="btn-subtle" onclick="toggleSectionCollapse('pipeline-card-body', this)"><span>▾</span> Collapse</button>
+                        </div>
                     </div>
-                    <div class="pipeline-stepper" id="pipeline-stepper-box">
-                        <div style="grid-column: span 3; text-align:center; color:var(--text-dim); padding:20px;">Loading cognitive pipeline topology...</div>
+                    <div id="pipeline-card-body" style="display:block;">
+                        <div class="pipeline-stepper" id="pipeline-stepper-box">
+                            <div class="pipe-stage-card">
+                                <div class="pipe-stage-head"><span class="pipe-num">STAGE 01</span><span class="pipe-status-pill pipe-status-active">ACTIVE</span></div>
+                                <div class="pipe-title">Somatosensory Perception</div>
+                                <div class="pipe-comp">SystemSomatosensory & GSMTC Bus</div>
+                                <div class="pipe-desc">Live Windows CPU/RAM/GPU VRAM telemetry, focused foreground window, and audio playback tracking.</div>
+                            </div>
+                            <div class="pipe-stage-card">
+                                <div class="pipe-stage-head"><span class="pipe-num">STAGE 02</span><span class="pipe-status-pill pipe-status-completed">COMPLETED</span></div>
+                                <div class="pipe-title">Working Memory & LTM Retrieval</div>
+                                <div class="pipe-comp">Letta Blocks & Bi-Temporal MAGMA Graph</div>
+                                <div class="pipe-desc">4 in-context character-bounded memory blocks compiled into prompt + Hybrid vector RAG.</div>
+                            </div>
+                            <div class="pipe-stage-card">
+                                <div class="pipe-stage-head"><span class="pipe-num">STAGE 03</span><span class="pipe-status-pill pipe-status-ready">READY</span></div>
+                                <div class="pipe-title">Tri-Perspective Divergent Generation</div>
+                                <div class="pipe-comp">Global Workspace Agent Swarm</div>
+                                <div class="pipe-desc">Specialist Nodes: Analytic, Pragmatic, and Cautious candidate thought generation.</div>
+                            </div>
+                            <div class="pipe-stage-card">
+                                <div class="pipe-stage-head"><span class="pipe-num">STAGE 04</span><span class="pipe-status-pill pipe-status-ready">READY</span></div>
+                                <div class="pipe-title">Convergent Critic & Shannon Entropy</div>
+                                <div class="pipe-comp">IntrinsicDriveMonitor H(W)</div>
+                                <div class="pipe-desc">Scoring proposals (-5 to +5). Entropy H(W) deadlock breaker dynamically regulates temperature.</div>
+                            </div>
+                            <div class="pipe-stage-card">
+                                <div class="pipe-stage-head"><span class="pipe-num">STAGE 05</span><span class="pipe-status-pill pipe-status-nominal">NOMINAL</span></div>
+                                <div class="pipe-title">Metacognitive Dual-Process Router</div>
+                                <div class="pipe-comp">System 1 Reflex & HASSUM System 2 Gate</div>
+                                <div class="pipe-desc">Sub-100ms fast reflex for hardware/media; HASSUM uncertainty gate for deep reasoning.</div>
+                            </div>
+                            <div class="pipe-stage-card">
+                                <div class="pipe-stage-head"><span class="pipe-num">STAGE 06</span><span class="pipe-status-pill pipe-status-enforcing">ENFORCING</span></div>
+                                <div class="pipe-title">Cedar Policy Decision Point (PDP)</div>
+                                <div class="pipe-comp">PolicyEngine (policies.cedar)</div>
+                                <div class="pipe-desc">Sub-0.1ms deterministic security gates: ALLOW, ESCALATE (human-in-the-loop hold), DENY.</div>
+                            </div>
+                            <div class="pipe-stage-card">
+                                <div class="pipe-stage-head"><span class="pipe-num">STAGE 07</span><span class="pipe-status-pill pipe-status-pinned">PINNED</span></div>
+                                <div class="pipe-title">Deterministic Shadow Git Checkpoint</div>
+                                <div class="pipe-comp">GitShadowCheckpointManager</div>
+                                <div class="pipe-desc">Captures modified and untracked workspace files into refs/checkpoints/ in &lt;1s.</div>
+                            </div>
+                            <div class="pipe-stage-card">
+                                <div class="pipe-stage-head"><span class="pipe-num">STAGE 08</span><span class="pipe-status-pill pipe-status-isolated">ISOLATED</span></div>
+                                <div class="pipe-title">Sandboxed OS Subprocess Execution</div>
+                                <div class="pipe-comp">SandboxRunner</div>
+                                <div class="pipe-desc">Sanitized execution environment with automated rollback on non-zero exit code or policy fault.</div>
+                            </div>
+                            <div class="pipe-stage-card">
+                                <div class="pipe-stage-head"><span class="pipe-num">STAGE 09</span><span class="pipe-status-pill pipe-status-synchronized">SYNCHRONIZED</span></div>
+                                <div class="pipe-title">State Transition & Memory Patch</div>
+                                <div class="pipe-comp">Letta Core Memory Re-think & Episodic WAL</div>
+                                <div class="pipe-desc">In-context memory block patch and lossless Tier 1 append-only SQLite transaction commit.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 2. Live Interactive Terminal & Subprocess Executor -->
-                <div class="exec-card tilt-card">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <div class="exec-card tilt-card" id="card-terminal-wrap">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                         <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--accent-cyan); display:flex; align-items:center; gap:8px;">
                             <span>💻</span> Live Sandboxed Terminal & Subprocess Runner
                         </h3>
-                        <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">Cedar Governed | Shadow Checkpointed | Auto-Rollback</span>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">Cedar Governed | Shadow Checkpointed | Auto-Rollback</span>
+                            <button class="btn-subtle" onclick="toggleSectionCollapse('terminal-card-body', this)"><span>▾</span> Collapse</button>
+                        </div>
                     </div>
-                    <div class="terminal-quick-cmds">
-                        <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono); margin-right:4px;">Presets:</span>
-                        <button class="term-preset-btn" onclick="runPresetTerminal('python -c &quot;import psutil; print(psutil.virtual_memory())&quot;')">psutil.virtual_memory()</button>
-                        <button class="term-preset-btn" onclick="runPresetTerminal('git status')">git status</button>
-                        <button class="term-preset-btn" onclick="runPresetTerminal('python cortex/skills/library/system_telemetry_reporter.py')">system_telemetry_reporter</button>
-                        <button class="term-preset-btn" onclick="runPresetTerminal('python cortex/skills/library/process_resource_optimizer.py')">process_resource_optimizer</button>
-                        <button class="term-preset-btn" onclick="runPresetTerminal('dir')">dir</button>
-                    </div>
-                    <div class="terminal-input-bar">
-                        <span class="term-prompt">cortex@laptop:~$</span>
-                        <input type="text" class="terminal-input" id="terminal-cmd-input" placeholder="Enter shell or python command to execute inside sandbox..." onkeydown="if(event.key==='Enter') executeTerminalCommand()">
-                        <button class="btn-action" onclick="executeTerminalCommand()">▶ Run Command</button>
-                    </div>
-                    <div class="terminal-screen" id="terminal-screen-box">
-                        <div class="term-line" style="color:var(--text-dim);">[CortexOS Kernel Terminal Ready. Commands execute with shadow checkpoint refs/checkpoints/]</div>
+                    <div id="terminal-card-body" style="display:flex; flex-direction:column; gap:14px;">
+                        <div class="terminal-quick-cmds">
+                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono); margin-right:4px;">Presets:</span>
+                            <button class="term-preset-btn" onclick="runPresetTerminal('python -c &quot;import psutil; print(psutil.virtual_memory())&quot;')">psutil.virtual_memory()</button>
+                            <button class="term-preset-btn" onclick="runPresetTerminal('git status')">git status</button>
+                            <button class="term-preset-btn" onclick="runPresetTerminal('python cortex/skills/library/system_telemetry_reporter.py')">system_telemetry_reporter</button>
+                            <button class="term-preset-btn" onclick="runPresetTerminal('python cortex/skills/library/process_resource_optimizer.py')">process_resource_optimizer</button>
+                            <button class="term-preset-btn" onclick="runPresetTerminal('dir')">dir</button>
+                        </div>
+                        <div class="terminal-input-bar">
+                            <span class="term-prompt">cortex@laptop:~$</span>
+                            <input type="text" class="terminal-input" id="terminal-cmd-input" placeholder="Enter shell or python command to execute inside sandbox..." onkeydown="if(event.key==='Enter') executeTerminalCommand()">
+                            <button class="btn-action" onclick="executeTerminalCommand()">▶ Run Command</button>
+                        </div>
+                        <div class="terminal-screen" id="terminal-screen-box">
+                            <div class="term-line" style="color:var(--accent-green); font-weight:700;">[CortexOS Sandboxed Kernel Terminal // Ready]</div>
+                            <div class="term-line" style="color:var(--text-dim);">All commands execute inside isolated sandbox with automated Git shadow checkpointing (refs/checkpoints/).</div>
+                            <div class="term-line" style="color:var(--accent-cyan);">Try running presets above or type any command (e.g., 'git status', 'python --version', 'dir').</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1862,25 +1948,59 @@ HTML_DASHBOARD = r"""
                     <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">4 Autonomous Supervisors</span>
                 </div>
                 <div class="daemons-grid" id="daemons-grid">
-                    <div style="grid-column: span 4; text-align:center; color:var(--text-dim); padding:20px;">Loading daemons telemetry...</div>
+                    <!-- 1. Uvicorn -->
+                    <div class="daemon-card tilt-card">
+                        <div class="daemon-head"><span class="daemon-name">🌐 Web & WS Daemon</span><span class="daemon-badge daemon-running">RUNNING</span></div>
+                        <div class="daemon-metric">PID: <span class="val">32364 (Port 8000)</span></div>
+                        <div class="daemon-metric">CPU: <span class="val">0.0%</span></div>
+                        <div class="daemon-metric">Memory RSS: <span class="val">89.46 MB</span></div>
+                        <div class="daemon-metric">Threads: <span class="val">22</span></div>
+                        <div class="daemon-metric">Status: <span class="val">High Availability Gateway</span></div>
+                    </div>
+                    <!-- 2. Ambient Tick -->
+                    <div class="daemon-card tilt-card">
+                        <div class="daemon-head"><span class="daemon-name">⏱️ Ambient Tick Worker</span><span class="daemon-badge daemon-running">ACTIVE</span></div>
+                        <div class="daemon-metric">Frequency: <span class="val">Every 15s</span></div>
+                        <div class="daemon-metric">Last Tick: <span class="val">#0</span></div>
+                        <div class="daemon-metric">Mode: <span class="val">On-Demand Reactive</span></div>
+                        <div class="daemon-metric">Duplex: <span class="val">1 Active WebSocket</span></div>
+                        <div class="daemon-metric">Status: <span class="val">GWA Cognitive Tick Loop</span></div>
+                    </div>
+                    <!-- 3. StallBreaker -->
+                    <div class="daemon-card tilt-card">
+                        <div class="daemon-head"><span class="daemon-name">🛡️ StallBreaker Sentinel</span><span class="daemon-badge daemon-nominal">NOMINAL</span></div>
+                        <div class="daemon-metric">Panic Switch: <span class="val">DISARMED</span></div>
+                        <div class="daemon-metric">Stall Timeout: <span class="val">45.0s Hardware Gate</span></div>
+                        <div class="daemon-metric">Status: <span class="val">Nominal Subsystem Bus</span></div>
+                        <div class="daemon-metric">Circuit Breaker: <span class="val">Armed</span></div>
+                    </div>
+                    <!-- 4. Digital Sleep -->
+                    <div class="daemon-card tilt-card">
+                        <div class="daemon-head"><span class="daemon-name">💤 Sleep Daemon</span><span class="daemon-badge daemon-nominal">STANDBY</span></div>
+                        <div class="daemon-metric">Engrams Stored: <span class="val">22 Atomic Engrams</span></div>
+                        <div class="daemon-metric">Stage 1-4: <span class="val">WAL / Bigram / LoRA</span></div>
+                        <div class="daemon-metric">Scheduler: <span class="val">AC Power & Idle State</span></div>
+                        <div class="daemon-metric">Status: <span class="val">Memory Consolidation</span></div>
+                    </div>
                 </div>
 
                 <!-- 4. Underlying Child Processes & Desktop Applications -->
-                <div class="exec-card tilt-card">
+                <div class="exec-card tilt-card" style="margin-bottom:40px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:10px;">
                         <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--text-main); display:flex; align-items:center; gap:8px;">
                             <span>🌳</span> Underlying Process Topology & Child Subprocesses
                         </h3>
-                        <div style="display:flex; gap:10px; align-items:center;">
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                             <input type="text" class="proc-search-input" id="proc-search-input" placeholder="Filter processes..." oninput="filterProcessTable(this.value)">
                             <div class="filter-tags">
                                 <span class="filter-tag active" id="ptag-cortex" onclick="toggleProcessTab('cortex', this)">CORTEX CHILDREN</span>
                                 <span class="filter-tag" id="ptag-desktop" onclick="toggleProcessTab('desktop', this)">DESKTOP APPS</span>
                                 <span class="filter-tag" id="ptag-system" onclick="toggleProcessTab('system', this)">TOP SYSTEM PROCS</span>
                             </div>
+                            <button class="btn-subtle" onclick="loadProcessesTelemetry()"><span>🔄</span> Refresh</button>
                         </div>
                     </div>
-                    <div class="data-table-wrap">
+                    <div class="data-table-wrap" style="max-height:360px;">
                         <table class="cortex-table">
                             <thead>
                                 <tr>
@@ -1893,7 +2013,7 @@ HTML_DASHBOARD = r"""
                                 </tr>
                             </thead>
                             <tbody id="processes-table-body">
-                                <tr><td colspan="6" style="text-align:center; color:var(--text-dim);">Loading processes...</td></tr>
+                                <tr><td colspan="6" style="text-align:center; color:var(--text-dim); padding:20px;">Loading process telemetry...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -3109,6 +3229,14 @@ HTML_DASHBOARD = r"""
         let currentProcessTelemetry = { cortex_children: [], desktop_applications: [], system_processes: [] };
         let activeProcessTab = 'cortex';
 
+        function toggleSectionCollapse(bodyId, btnEl) {
+            const el = document.getElementById(bodyId);
+            if (!el) return;
+            const isHidden = (el.style.display === 'none');
+            el.style.display = isHidden ? (bodyId.includes('terminal') ? 'flex' : 'block') : 'none';
+            if (btnEl) btnEl.innerHTML = isHidden ? '<span>▾</span> Collapse' : '<span>▸</span> Expand';
+        }
+
         async function loadExecutionPane() {
             loadPipelineStepper();
             loadDaemonsTelemetry();
@@ -3205,6 +3333,14 @@ HTML_DASHBOARD = r"""
             try {
                 const res = await fetch('/api/execution/processes');
                 currentProcessTelemetry = await res.json();
+                if (activeProcessTab === 'cortex' && (!currentProcessTelemetry.cortex_children || currentProcessTelemetry.cortex_children.length === 0)) {
+                    if (currentProcessTelemetry.desktop_applications && currentProcessTelemetry.desktop_applications.length > 0) {
+                        activeProcessTab = 'desktop';
+                        document.querySelectorAll('#pane-execution .filter-tag').forEach(t => t.classList.remove('active'));
+                        const ptag = document.getElementById('ptag-desktop');
+                        if (ptag) ptag.classList.add('active');
+                    }
+                }
                 renderProcessTable();
             } catch (e) {
                 console.error('Failed to load processes:', e);
