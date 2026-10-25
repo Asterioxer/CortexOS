@@ -91,8 +91,8 @@ CortexOS is embodied natively on personal hardware:
 
 ### 1. Clone & Set Up Virtual Environment
 ```bash
-git clone https://github.com/Asterioxer/self-conscious.git
-cd self-conscious
+git clone https://github.com/Asterioxer/CortexOS.git
+cd CortexOS
 
 # Create virtual environment
 python -m venv .venv
@@ -105,7 +105,7 @@ pip install -r requirements.txt
 ### 2. Run Test Suite
 ```bash
 pytest -v
-# Verified: 24/24 unit, integration, and UI tests pass cleanly
+# Verified: 25/25 unit, integration, and UI tests pass cleanly
 ```
 
 ### 3. Launch the Web Dashboard
