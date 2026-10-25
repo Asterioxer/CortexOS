@@ -46,7 +46,7 @@ class PolicyEngine:
         "exec_remote_ssh"
     }
 
-    # Safe read-only actions
+    # Safe read-only actions and somatosensory inspection
     READ_ACTIONS = {
         "file_read",
         "directory_list",
@@ -54,7 +54,14 @@ class PolicyEngine:
         "inspect_accessibility_tree",
         "capture_screenshot",
         "search_memory",
-        "read_engram"
+        "read_engram",
+        "get_telemetry",
+        "get_gpu",
+        "get_cpu",
+        "get_ram",
+        "get_battery",
+        "get_processes",
+        "find_process"
     }
 
     def __init__(self, cedar_policy_path: Optional[str] = None):

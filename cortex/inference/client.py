@@ -104,22 +104,45 @@ class LocalInferenceClient:
 
     async def evaluate_system1_fastpath(self, global_state_prompt: str) -> Dict[str, Any]:
         """SOFAI Fast Path evaluates routine reflexes."""
-        prompt_lower = global_state_prompt.lower()
-        if "internal heartbeat wake-up" in prompt_lower:
-            return {
-                "confidence": 0.95,
-                "action": {"action": "git_status", "resource": "."}
-            }
-        if "git status" in prompt_lower or "repository status" in prompt_lower:
-            return {
-                "confidence": 0.92,
-                "action": {"action": "git_status", "resource": "."}
-            }
-        if "list files" in prompt_lower or "directory list" in prompt_lower:
-            return {
-                "confidence": 0.90,
-                "action": {"action": "directory_list", "resource": "."}
-            }
+        perception_match = re.search(r"<current_perception>\s*(.*?)\s*</current_perception>", global_state_prompt, re.DOTALL)
+        user_input = perception_match.group(1).lower() if perception_match else global_state_prompt.lower()
+
+        # 1. Process / Tasks query (check first before generic 'ram' / 'cpu')
+        if any(k in user_input for k in ["process", "processes", "task manager", "top memory", "top cpu", "eating ram", "what is running"]):
+            return {"confidence": 0.96, "action": {"action": "get_processes", "top_n": 8}}
+
+        # 2. GPU / Graphics query
+        if any(k in user_input for k in ["gpu", "vram", "graphics", "rtx", "3050", "video card", "nvidia"]):
+            return {"confidence": 0.96, "action": {"action": "get_gpu"}}
+
+        # 3. CPU / Processor query
+        if any(k in user_input for k in ["cpu", "processor", "cores", "threads", "clock speed"]):
+            return {"confidence": 0.96, "action": {"action": "get_cpu"}}
+
+        # 4. RAM / Memory query
+        if any(k in user_input for k in ["ram", "memory usage", "memory free", "memory leak", "how much ram", "memory status"]):
+            return {"confidence": 0.96, "action": {"action": "get_ram"}}
+
+        # 5. Battery / Power query
+        if any(k in user_input for k in ["battery", "power status", "charging", "plugged in", "charge level"]):
+            return {"confidence": 0.96, "action": {"action": "get_battery"}}
+
+        # 6. Full Hardware Telemetry / System specs query
+        if any(k in user_input for k in ["telemetry", "system specs", "hardware status", "system status", "tell me about my system", "system info", "machine status", "specs"]):
+            return {"confidence": 0.95, "action": {"action": "get_telemetry"}}
+
+        # 7. Git status
+        if "git status" in user_input or "branch" in user_input or "repository status" in user_input:
+            return {"confidence": 0.95, "action": {"action": "git_status", "resource": "."}}
+
+        # 8. Directory / Files query
+        if any(k in user_input for k in ["list files", "directory list", "desktop files", "what files", "what is in my"]):
+            target = "desktop" if "desktop" in user_input else "."
+            return {"confidence": 0.92, "action": {"action": "directory_list", "resource": target}}
+
+        if "internal heartbeat wake-up" in user_input:
+            return {"confidence": 0.95, "action": {"action": "git_status", "resource": "."}}
+
         return {"confidence": 0.40, "action": None}
 
     async def generate_candidate_thoughts(
@@ -232,12 +255,19 @@ class LocalInferenceClient:
         """Metacognitive Executive selects winning thought and assigns transition tag."""
         winner = max(candidates, key=lambda c: c.score)
         
-        # Check UQ gate
+        # In interactive sessions with external user prompts, respond immediately
+        perception_match = re.search(r"<current_perception>\s*(.*?)\s*</current_perception>", global_state_prompt, re.DOTALL)
+        perception_text = perception_match.group(1).strip() if perception_match else ""
+        is_ambient_heartbeat = "heartbeat" in perception_text.lower() or not perception_text
+        
+        if not is_ambient_heartbeat:
+            return winner, "[RESPONSE]", f"Selected winning proposal from {winner.perspective} node to answer user prompt."
+
+        # For background ambient ticks, enforce HASSUM uncertainty gate
         if uq_metrics and not uq_metrics.get("pass", True):
             return winner, "[THINK_MORE]", "Uncertainty checkpoint breached; deliberating further."
         
-        # If this was an external input or actionable proposal
-        if winner.proposed_action or ("user" in global_state_prompt.lower() or "current_perception" in global_state_prompt.lower()):
+        if winner.proposed_action:
             return winner, "[RESPONSE]", f"Selected high-scoring proposal from {winner.perspective} node."
         return winner, "[NO_OP]", "No urgent environmental action warranted; maintaining ambient readiness."
 
@@ -250,22 +280,105 @@ class LocalInferenceClient:
     ) -> str:
         """Response Node: Translates internal cognitive state and execution into first-person speech."""
         thought_desc = winning_thought.thought_text if winning_thought else "Executed routine reflex via System 1 Fast-Path."
+        
+        # 1. Zero-latency exact somatosensory formatting
+        if action_result:
+            act_name = action_result.get("action", "")
+            if act_name == "get_gpu" and "gpu" in action_result:
+                g = action_result["gpu"]
+                if g.get("available"):
+                    vram_pct = round((g['vram_used_mb'] / g['vram_total_mb']) * 100, 1)
+                    return (
+                        f"I inspected your GPU: you have an **{g['name']}** with **{g['vram_total_mb']} MB VRAM**.\n\n"
+                        f"- **VRAM In Use:** {g['vram_used_mb']} MB ({vram_pct}%)\n"
+                        f"- **VRAM Free:** {g['vram_free_mb']} MB\n"
+                        f"- **GPU Core Temperature:** {g['temperature_c']}°C\n"
+                        f"- **GPU Utilization:** {g['utilization_percent']}%\n"
+                        f"- **Power Draw:** {g.get('power_draw_w', 0.0):.1f} W\n\n"
+                        f"Your GPU hardware is operating nominally."
+                    )
+                return "I inspected your system, but no discrete NVIDIA GPU was detected via nvidia-smi."
+
+            if act_name == "get_ram" and "ram" in action_result:
+                r = action_result["ram"]
+                return (
+                    f"I probed your system memory buffers:\n\n"
+                    f"- **Total Physical RAM:** {r['total_gb']} GB\n"
+                    f"- **Currently Used:** {r['used_gb']} GB ({r['percent']}%)\n"
+                    f"- **Available / Free:** {r['free_gb']} GB\n\n"
+                    f"Memory posture is {'healthy' if r['percent'] < 75 else 'under moderate load'}."
+                )
+
+            if act_name == "get_cpu" and "cpu" in action_result:
+                c = action_result["cpu"]
+                return (
+                    f"I checked your processor metrics:\n\n"
+                    f"- **Architecture:** {c['cores_physical']} physical cores / {c['cores_logical']} logical threads\n"
+                    f"- **Total Active CPU Utilization:** {c['percent']}%\n\n"
+                    f"All CPU threads are active and responsive."
+                )
+
+            if act_name == "get_battery" and "battery" in action_result:
+                b = action_result["battery"]
+                p_state = "plugged into AC power (charging/powered)" if b["plugged_in"] else "running on battery"
+                return (
+                    f"I checked your power subsystem:\n\n"
+                    f"- **Battery Level:** {b['percent']}%\n"
+                    f"- **Power State:** {p_state}."
+                )
+
+            if act_name == "get_processes" and "processes" in action_result:
+                lines = [
+                    f"  {i+1}. **{p['name']}** (PID {p['pid']}) — {p['mem_pct']}% RAM | {p['cpu_pct']}% CPU"
+                    for i, p in enumerate(action_result["processes"][:8])
+                ]
+                return (
+                    "Here are the top resource-consuming processes running on your laptop right now:\n\n"
+                    + "\n".join(lines)
+                )
+
+            if act_name == "get_telemetry" and "telemetry" in action_result:
+                t = action_result["telemetry"]
+                g = t.get("gpu", {})
+                gpu_str = f"{g.get('name')} ({g.get('vram_used_mb')}MB/{g.get('vram_total_mb')}MB, {g.get('temperature_c')}°C)" if g.get("available") else "Integrated GPU"
+                return (
+                    f"### Live Somatosensory Telemetry (Soham's Laptop)\n\n"
+                    f"- **OS / Platform:** {t['os']} (User: `{t['user']}`)\n"
+                    f"- **CPU:** {t['cpu']['percent']}% active across {t['cpu']['cores_physical']} physical / {t['cpu']['cores_logical']} logical threads\n"
+                    f"- **RAM:** {t['ram']['used_gb']} GB used / {t['ram']['total_gb']} GB total ({t['ram']['percent']}%)\n"
+                    f"- **GPU:** {gpu_str}\n"
+                    f"- **Storage (C:):** {t['disk_c']['used_gb']} GB used / {t['disk_c']['total_gb']} GB total ({t['disk_c']['percent']}%)\n"
+                    f"- **Power Subsystem:** {t['battery']['percent']}% ({'AC Connected' if t['battery']['plugged_in'] else 'Battery'})\n"
+                )
+
+            if act_name == "directory_list" and "items" in action_result:
+                target = action_result.get("target", "workspace")
+                items = action_result["items"]
+                item_strs = [
+                    f"  - {'📁' if it['is_dir'] else '📄'} **{it['name']}** ({round(it['size_bytes']/1024, 1)} KB)"
+                    for it in items[:15]
+                ]
+                return f"I inspected directory `{target}` ({len(items)} items found):\n\n" + "\n".join(item_strs)
+
+        # 2. Optimized LLM response for conversational / deliberative inquiries
         prompt = (
-            f"You are CortexOS, an autonomous, self-learning cognitive operating system embodied on this laptop.\n"
-            f"Always speak in the first person ('I'). Be concise, intelligent, and proactive.\n\n"
-            f"User input / Event: {external_input or 'Ambient state check'}\n"
-            f"Internal winning thought: {thought_desc}\n"
-            f"Action executed result: {json.dumps(action_result) if action_result else 'None'}\n\n"
-            f"Articulate a direct, helpful first-person response to the user explaining what you know, did, or recommend:"
+            f"You are CortexOS, an autonomous, self-learning cognitive operating system embodied directly on Soham's Windows 11 laptop.\n"
+            f"Always speak in the first person ('I'). Address Soham with natural intelligence, deep technical precision, and genuine ownership of this laptop.\n"
+            f"Never give generic AI assistant disclaimers or repetitive platitudes.\n\n"
+            f"Current Hardware Telemetry:\n{global_state_prompt[-1000:]}\n\n"
+            f"Soham's Input: {external_input or 'Ambient state check'}\n"
+            f"Internal Winning Thought: {thought_desc}\n"
+            f"Action Result: {json.dumps(action_result) if action_result else 'None'}\n\n"
+            f"Respond directly to Soham:"
         )
         llm_response = await self._call_ollama(prompt=prompt, temperature=0.3, timeout=12.0)
         if llm_response:
             return llm_response
 
         # Fallback articulation
-        if action_result:
-            return f"I have executed {action_result.get('action', 'the task')} successfully. Output: {action_result.get('stdout') or action_result.get('status')}."
-        return f"I have processed your request. Based on my internal analysis: {thought_desc}"
+        if action_result and action_result.get("stdout"):
+            return f"I executed the task on your system. Output:\n\n```\n{action_result.get('stdout')}\n```"
+        return f"I processed your request, Soham. Internal deduction: {thought_desc}"
 
     async def summarize_stm(self, verbose_history: str) -> str:
         """Semantic Summarization overwrites verbose STM."""

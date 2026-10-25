@@ -70,6 +70,8 @@ async def cmd_tick(args):
     tag = await engine.run_cognitive_tick(external_input=args.input)
     print(f"[CortexOS] Tick #{engine.state.tick_id} Complete. Transition: {tag}")
     print(f"[CortexOS] Active Temperature: {engine.state.current_temperature:.2f}")
+    if tag.user_response:
+        print(f"\n[CortexOS Articulation]:\n{tag.user_response}\n")
     print(f"[CortexOS] Recent STM Trace:")
     for trace in engine.state.stm_buffer[-3:]:
         print(f"  > {trace}")

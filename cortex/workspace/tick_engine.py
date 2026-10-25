@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 import numpy as np
+from cortex.embodiment.system_somatosensory import SystemSomatosensory
 
 TransitionTag = Literal["[THINK_MORE]", "[RESPONSE]", "[NO_OP]"]
 
@@ -133,12 +134,21 @@ class HASSUMUncertaintyGate:
 
 class GWACognitiveTickEngine:
     """Executes the 4-phase synchronized Global Workspace Cognitive Tick."""
-    def __init__(self, llm_client, memory_substrate, working_memory, skill_engine, policy_gate):
+    def __init__(
+        self,
+        llm_client,
+        memory_substrate,
+        working_memory,
+        skill_engine,
+        policy_gate,
+        somatosensory: Optional[SystemSomatosensory] = None
+    ):
         self.llm = llm_client
         self.memory = memory_substrate
         self.wm = working_memory
         self.skills = skill_engine
         self.policy = policy_gate
+        self.somato = somatosensory or SystemSomatosensory()
         self.state = GlobalWorkspaceState()
         self.drive = IntrinsicDriveMonitor()
 
@@ -256,11 +266,13 @@ class GWACognitiveTickEngine:
     def _compile_global_state(self, ext_input: Optional[str], rag_ctx: str) -> str:
         blocks = self.wm.compile()
         stm_text = "\n".join(self.state.stm_buffer[-10:])
+        somato_str = self.somato.get_summary_snapshot()
         return (
             f"<core_self>\n{self.state.p_self}\n</core_self>\n"
             f"<memory_blocks>\n{blocks}\n</memory_blocks>\n"
             f"<retrieved_ltm>\n{rag_ctx}\n</retrieved_ltm>\n"
             f"<working_stage_stm>\n{stm_text}\n</working_stage_stm>\n"
+            f"<hardware_somatosensory>\n{somato_str}\n</hardware_somatosensory>\n"
             f"<current_perception>\n{ext_input or 'Internal heartbeat wake-up.'}\n</current_perception>"
         )
 
@@ -291,23 +303,58 @@ class GWACognitiveTickEngine:
         resource = action.get("resource", "")
 
         try:
-            if action_type == "git_status":
+            if action_type == "get_telemetry":
+                telem = self.somato.get_hardware_telemetry()
+                return {"action": "get_telemetry", "telemetry": telem, "status": "SUCCESS"}, None
+
+            elif action_type == "get_gpu":
+                gpu = self.somato.get_hardware_telemetry()["gpu"]
+                return {"action": "get_gpu", "gpu": gpu, "status": "SUCCESS"}, None
+
+            elif action_type == "get_cpu":
+                cpu = self.somato.get_hardware_telemetry()["cpu"]
+                return {"action": "get_cpu", "cpu": cpu, "status": "SUCCESS"}, None
+
+            elif action_type == "get_ram":
+                ram = self.somato.get_hardware_telemetry()["ram"]
+                return {"action": "get_ram", "ram": ram, "status": "SUCCESS"}, None
+
+            elif action_type == "get_battery":
+                batt = self.somato.get_hardware_telemetry()["battery"]
+                return {"action": "get_battery", "battery": batt, "status": "SUCCESS"}, None
+
+            elif action_type == "get_processes":
+                procs = self.somato.get_processes(top_n=action.get("top_n", 8))
+                return {"action": "get_processes", "processes": procs, "status": "SUCCESS"}, None
+
+            elif action_type == "find_process":
+                q = action.get("query") or resource or ""
+                matches = self.somato.find_process(q)
+                return {"action": "find_process", "query": q, "matches": matches, "status": "SUCCESS"}, None
+
+            elif action_type == "command_run":
+                cmd = action.get("command") or resource
+                res = self.somato.run_command(cmd)
+                return {"action": "command_run", "command": cmd, "stdout": res["stdout"], "stderr": res["stderr"], "exit_code": res["exit_code"], "status": res["status"]}, None
+
+            elif action_type == "git_status":
                 proc = subprocess.run(["git", "status", "-s"], capture_output=True, text=True)
                 return {"action": "git_status", "stdout": proc.stdout or "Working tree clean.", "status": "SUCCESS"}, None
 
             elif action_type == "directory_list":
-                items = os.listdir(resource or ".")
-                return {"action": "directory_list", "items": items[:15], "count": len(items), "status": "SUCCESS"}, None
+                target = resource
+                if target in ["desktop", "Desktop"]:
+                    target = str(self.somato.desktop_dir)
+                elif target in ["downloads", "Downloads"]:
+                    target = str(self.somato.downloads_dir)
+                items = self.somato.list_directory(target or ".")
+                return {"action": "directory_list", "target": target, "items": items[:25], "count": len(items), "status": "SUCCESS"}, None
 
             elif action_type == "file_read":
-                path = Path(resource)
-                if path.exists() and path.is_file():
-                    content = path.read_text(encoding="utf-8")
-                    return {"action": "file_read", "path": str(path), "preview": content[:400], "status": "SUCCESS"}, None
-                return {"action": "file_read", "error": "File not found", "status": "FAILED"}, None
+                res = self.somato.read_file_content(resource)
+                return {"action": "file_read", "path": resource, "preview": res.get("content", "")[:500], "total_lines": res.get("total_lines", 0), "status": res.get("status", "SUCCESS")}, None
 
             elif self.skills:
-                # Skill synthesis or procedural tool execution
                 skill_res = await self.skills.execute_or_synthesize(action)
                 return skill_res, None
 

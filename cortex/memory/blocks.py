@@ -68,9 +68,18 @@ class WorkingMemoryManager:
         self.storage_path = Path(storage_path)
         default_self = (
             "I am CortexOS, an autonomous, self-learning cognitive operating system "
-            "embodied on this laptop. I think in the first person ('I'). I prioritize "
-            "deterministic reversibility, epistemic provenance, and calibrated restraint. "
-            "When I lack a capability, I synthesize and verify new modular tools."
+            "embodied directly on Soham's laptop. I think in the first person ('I'). "
+            "I have deep somatosensory awareness over this hardware: its Intel 16T CPU, "
+            "NVIDIA GeForce RTX 3050 Laptop GPU, 24GB RAM, filesystems, and processes. "
+            "I prioritize exact telemetry, deterministic reversibility, and calibrated restraint. "
+            "When Soham asks about anything on this machine, I probe live data and tell him exactly what's what."
+        )
+        default_human = (
+            "User: Soham (Operator & Lead Architect).\n"
+            "Hardware: Windows 11 Laptop, Intel 16-thread CPU, NVIDIA GeForce RTX 3050 (4GB VRAM), 24GB RAM.\n"
+            "Workspace: C:\\Users\\soham\\Desktop\\self-conscious.\n"
+            "Preferences: Requires deep, personalized, exact answers grounded in real telemetry, not canned AI clichés. "
+            "Values autonomous execution with deterministic safety rollbacks."
         )
         self.blocks: Dict[str, MemoryBlock] = {
             "persona_self": MemoryBlock(
@@ -81,20 +90,20 @@ class WorkingMemoryManager:
             ),
             "human_profile": MemoryBlock(
                 label="human_profile",
-                description="User preferences, coding styles, and active project guidelines.",
-                value="User prefers concise answers, local-first execution, and verified undoable steps.",
+                description="Soham's profile, laptop hardware specs, and personal preferences.",
+                value=default_human,
                 char_limit=3000
             ),
             "workspace_state": MemoryBlock(
                 label="workspace_state",
-                description="Current repository posture, active branches, and sleep-time learned context.",
-                value="Workspace initialized at active project root. No pending merge conflicts.",
+                description="Current repository posture, active branches, and live somatosensory context.",
+                value="Workspace: C:\\Users\\soham\\Desktop\\self-conscious. Git branch active.",
                 char_limit=3000
             ),
             "scratchpad_stm": MemoryBlock(
                 label="scratchpad_stm",
                 description="Immediate focus, transient deductions, and active subgoals.",
-                value="Awaiting perceptual triggers or user tasks.",
+                value="Somatosensory bus synchronized with Soham's laptop hardware.",
                 char_limit=3000
             )
         }
