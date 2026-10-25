@@ -65,7 +65,7 @@ class MediaControlRequest(BaseModel):
     command: str = "toggle"
 
 
-HTML_DASHBOARD = """
+HTML_DASHBOARD = r"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -82,9 +82,9 @@ HTML_DASHBOARD = """
         :root {
             --bg-dark: #070a13;
             --bg-card: rgba(13, 20, 36, 0.72);
-            --bg-card-hover: rgba(18, 28, 51, 0.82);
+            --bg-card-hover: rgba(18, 28, 51, 0.85);
             --border-panel: rgba(56, 189, 248, 0.22);
-            --border-glow: rgba(56, 189, 248, 0.45);
+            --border-glow: rgba(56, 189, 248, 0.5);
             --border-subtle: rgba(255, 255, 255, 0.08);
             --accent-cyan: #00e5ff;
             --accent-blue: #38bdf8;
@@ -94,6 +94,8 @@ HTML_DASHBOARD = """
             --accent-purple: #c084fc;
             --text-main: #f1f5f9;
             --text-dim: #94a3b8;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-display: 'Orbitron', 'Inter', sans-serif;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -105,9 +107,10 @@ HTML_DASHBOARD = """
             flex-direction: column;
             overflow: hidden;
             position: relative;
+            user-select: none;
         }
 
-        /* Persistent Ambient Three.js Canvas */
+        /* Ambient Background Canvas */
         #webgl-bg-canvas {
             position: fixed;
             top: 0;
@@ -121,46 +124,70 @@ HTML_DASHBOARD = """
         /* Cybernetic Header HUD */
         header {
             height: 64px;
-            background: rgba(10, 15, 29, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: rgba(10, 15, 29, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--border-panel);
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 24px;
             z-index: 20;
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
         }
         .brand {
             display: flex;
             align-items: center;
             gap: 14px;
-            font-family: 'Orbitron', 'JetBrains Mono', monospace;
+            font-family: var(--font-display);
             font-weight: 700;
             font-size: 1.05rem;
             color: var(--accent-cyan);
             letter-spacing: 1px;
-            text-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+            text-shadow: 0 0 14px rgba(0, 229, 255, 0.45);
+        }
+        .conn-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.72rem;
+            font-family: var(--font-mono);
+            padding: 3px 8px;
+            border-radius: 12px;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--accent-green);
+            transition: all 0.3s ease;
+        }
+        .conn-pill.reconnecting {
+            background: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: var(--accent-yellow);
+        }
+        .conn-pill.offline {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--accent-red);
         }
         .pulse-dot {
-            width: 12px;
-            height: 12px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            background: var(--accent-green);
-            box-shadow: 0 0 14px var(--accent-green);
+            background: currentColor;
+            box-shadow: 0 0 8px currentColor;
             animation: pulse-glow 2s infinite;
         }
         @keyframes pulse-glow {
-            0% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 8px var(--accent-green); }
-            50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 18px var(--accent-green); }
-            100% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 8px var(--accent-green); }
+            0% { transform: scale(0.85); opacity: 0.6; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.85); opacity: 0.6; }
         }
+
         .ticker-bar {
             display: flex;
             align-items: center;
             gap: 12px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.82rem;
         }
         .ticker-item {
@@ -200,7 +227,7 @@ HTML_DASHBOARD = """
             color: var(--accent-cyan);
             padding: 6px 14px;
             border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.78rem;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -218,7 +245,7 @@ HTML_DASHBOARD = """
             color: var(--accent-purple);
             padding: 6px 14px;
             border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.78rem;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -230,7 +257,7 @@ HTML_DASHBOARD = """
             color: var(--accent-red);
             padding: 6px 14px;
             border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.78rem;
             font-weight: 700;
             cursor: pointer;
@@ -238,7 +265,7 @@ HTML_DASHBOARD = """
         }
         .btn-panic:hover { background: rgba(239, 68, 68, 0.35); box-shadow: 0 0 16px rgba(239, 68, 68, 0.4); }
 
-        /* Main Grid Area */
+        /* Main Workspace Layout */
         main {
             flex: 1;
             display: grid;
@@ -250,9 +277,9 @@ HTML_DASHBOARD = """
 
         /* Sidebar Navigation */
         aside.nav-sidebar {
-            background: rgba(10, 15, 29, 0.75);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: rgba(10, 15, 29, 0.78);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
             border-right: 1px solid var(--border-panel);
             padding: 20px 16px;
             display: flex;
@@ -273,9 +300,22 @@ HTML_DASHBOARD = """
             transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex;
             align-items: center;
+            justify-content: space-between;
+        }
+        .nav-btn .nav-label {
+            display: flex;
+            align-items: center;
             gap: 14px;
         }
         .nav-btn .icon { font-size: 1.15rem; transition: transform 0.2s ease; }
+        .nav-btn .kbd-hint {
+            font-size: 0.68rem;
+            font-family: var(--font-mono);
+            color: rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
         .nav-btn:hover {
             background: rgba(0, 229, 255, 0.08);
             color: var(--text-main);
@@ -289,8 +329,9 @@ HTML_DASHBOARD = """
             box-shadow: 0 0 20px rgba(0, 229, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
             font-weight: 600;
         }
+        .nav-btn.active .kbd-hint { color: var(--accent-cyan); background: rgba(0, 229, 255, 0.15); }
 
-        /* Content Container */
+        /* Panes Container */
         .content-area {
             flex: 1;
             height: 100%;
@@ -303,16 +344,27 @@ HTML_DASHBOARD = """
             height: 100%;
         }
 
-        /* 3D Glass Card Physics Tilt */
+        /* 3D Holographic Card Tilt Effect */
         .tilt-card {
             transform-style: preserve-3d;
             perspective: 1000px;
-            transition: transform 0.15s ease-out, box-shadow 0.2s ease, border-color 0.2s ease;
-            will-change: transform;
+            transition: transform 0.12s ease-out, box-shadow 0.2s ease, border-color 0.2s ease;
+            position: relative;
+            overflow: hidden;
         }
+        .tilt-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0, 229, 255, 0.12), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .tilt-card:hover::after { opacity: 1; }
         .tilt-card:hover {
             border-color: var(--border-glow);
-            box-shadow: 0 16px 36px -8px rgba(0, 229, 255, 0.18), 0 0 14px rgba(56, 189, 248, 0.15);
+            box-shadow: 0 16px 36px -8px rgba(0, 229, 255, 0.2), 0 0 16px rgba(56, 189, 248, 0.15);
         }
 
         /* PANE 1: Cognitive Stage */
@@ -327,27 +379,29 @@ HTML_DASHBOARD = """
             flex-direction: column;
             height: 100%;
             overflow: hidden;
-            background: rgba(8, 12, 24, 0.4);
+            background: rgba(8, 12, 24, 0.45);
             position: relative;
         }
         .chat-messages {
             flex: 1;
-            padding: 28px;
+            padding: 26px 30px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 20px;
+            user-select: text;
         }
         .message-bubble {
-            max-width: 82%;
+            max-width: 84%;
             padding: 16px 22px;
             border-radius: 14px;
-            line-height: 1.55;
+            line-height: 1.6;
             font-size: 0.96rem;
             animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            position: relative;
         }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(8px) scale(0.98); }
@@ -358,65 +412,173 @@ HTML_DASHBOARD = """
             background: linear-gradient(135deg, #1d4ed8, #2563eb);
             color: #fff;
             border-bottom-right-radius: 3px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 8px 22px rgba(37, 99, 235, 0.35);
         }
         .msg-cortex {
             align-self: flex-start;
-            background: rgba(18, 28, 51, 0.85);
+            background: rgba(18, 28, 51, 0.88);
             border: 1px solid var(--border-panel);
             color: var(--text-main);
             border-bottom-left-radius: 3px;
         }
+
+        /* Real-Time Thinking State Bubble */
+        .thinking-bubble {
+            align-self: flex-start;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(18, 28, 51, 0.85);
+            border: 1px solid rgba(0, 229, 255, 0.4);
+            border-radius: 14px;
+            padding: 14px 20px;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+            animation: fadeIn 0.2s ease;
+        }
+        .thinking-spinner {
+            position: relative;
+            width: 24px;
+            height: 24px;
+        }
+        .spinner-ring {
+            width: 100%;
+            height: 100%;
+            border: 2px solid transparent;
+            border-top-color: var(--accent-cyan);
+            border-bottom-color: var(--accent-purple);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        .spinner-core {
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 8px; height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 8px var(--accent-cyan);
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .thinking-text { display: flex; flex-direction: column; gap: 3px; }
+        .thinking-title {
+            font-family: var(--font-display);
+            font-size: 0.78rem;
+            color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+            font-weight: 700;
+        }
+        .thinking-step {
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            transition: all 0.3s ease;
+        }
+
+        /* Markdown Code Boxes in Chat */
+        .code-block-wrap {
+            position: relative;
+            margin: 10px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-panel);
+            background: #000;
+        }
+        .code-block-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.95);
+            padding: 6px 12px;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .btn-copy {
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            color: var(--accent-cyan);
+            padding: 2px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            transition: all 0.2s;
+        }
+        .btn-copy:hover { background: rgba(0, 229, 255, 0.25); }
+        .code-block-body {
+            padding: 12px 14px;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            color: #38bdf8;
+            overflow-x: auto;
+            white-space: pre;
+            line-height: 1.45;
+        }
+
+        /* Perspective Thought Details */
         .thought-card {
             margin-top: 12px;
-            background: rgba(10, 16, 30, 0.9);
+            background: rgba(10, 16, 30, 0.92);
             border-left: 3px solid var(--accent-cyan);
             border-radius: 6px;
             padding: 10px 14px;
             font-size: 0.84rem;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             color: var(--text-dim);
-            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.5);
+            box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.5);
         }
         .thought-card summary { cursor: pointer; color: var(--accent-cyan); font-weight: 600; outline: none; }
-        .hold-card {
-            margin-top: 14px;
-            background: rgba(239, 68, 68, 0.18);
-            border: 1px solid var(--accent-red);
-            border-radius: 10px;
-            padding: 16px;
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
+        .persp-badge {
+            display: inline-block;
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-weight: 700;
+            margin-right: 6px;
         }
-        .hold-card h4 { color: var(--accent-red); margin-bottom: 8px; font-size: 0.92rem; }
-        .hold-actions { display: flex; gap: 12px; margin-top: 14px; }
-        .btn-approve {
-            background: var(--accent-green);
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-weight: 600;
+        .persp-analytic { background: rgba(56, 189, 248, 0.2); color: var(--accent-blue); }
+        .persp-pragmatic { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .persp-cautious { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
+
+        /* Quick-Prompt Suggestion Chips */
+        .quick-chips {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 26px 0;
+            overflow-x: auto;
+            scrollbar-width: none;
+            background: rgba(10, 15, 29, 0.9);
+        }
+        .quick-chip {
+            background: rgba(18, 28, 51, 0.8);
+            border: 1px solid var(--border-panel);
+            color: var(--text-dim);
+            padding: 5px 12px;
+            border-radius: 14px;
+            font-size: 0.78rem;
+            font-family: var(--font-mono);
             cursor: pointer;
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+            white-space: nowrap;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .btn-reject {
-            background: var(--accent-red);
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+        .quick-chip:hover {
+            background: rgba(0, 229, 255, 0.15);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 229, 255, 0.2);
         }
+
         .chat-input-bar {
-            padding: 18px 28px;
-            background: rgba(10, 15, 29, 0.92);
-            backdrop-filter: blur(16px);
+            padding: 14px 26px 18px;
+            background: rgba(10, 15, 29, 0.95);
+            backdrop-filter: blur(18px);
             border-top: 1px solid var(--border-panel);
             display: flex;
-            gap: 14px;
+            gap: 12px;
             z-index: 5;
         }
         .chat-input {
@@ -429,11 +591,12 @@ HTML_DASHBOARD = """
             font-size: 0.95rem;
             outline: none;
             transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: text;
         }
         .chat-input:focus {
             border-color: var(--accent-cyan);
             box-shadow: 0 0 16px rgba(0, 229, 255, 0.25);
-            background: rgba(22, 34, 60, 0.9);
+            background: rgba(22, 34, 60, 0.95);
         }
         .btn-send {
             background: linear-gradient(135deg, #0284c7, #0ea5e9);
@@ -454,15 +617,15 @@ HTML_DASHBOARD = """
 
         /* Cognitive Stage Sidebar / Inspector */
         aside.state-inspector {
-            background: rgba(10, 15, 29, 0.7);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: rgba(10, 15, 29, 0.75);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
             border-left: 1px solid var(--border-panel);
             padding: 22px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 18px;
+            gap: 16px;
             z-index: 5;
         }
         .block-card {
@@ -471,9 +634,10 @@ HTML_DASHBOARD = """
             border-radius: 10px;
             padding: 14px;
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+            user-select: text;
         }
         .block-card h4 {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.82rem;
             color: var(--accent-purple);
             text-transform: uppercase;
@@ -497,6 +661,7 @@ HTML_DASHBOARD = """
             padding: 30px 40px;
             gap: 26px;
             z-index: 5;
+            user-select: text;
         }
         .pane-scrollable.active { display: flex; }
         .pane-header {
@@ -513,7 +678,7 @@ HTML_DASHBOARD = """
             display: flex;
             align-items: center;
             gap: 12px;
-            font-family: 'Orbitron', 'Inter', sans-serif;
+            font-family: var(--font-display);
             letter-spacing: 0.5px;
         }
         .pane-desc {
@@ -527,7 +692,7 @@ HTML_DASHBOARD = """
             color: var(--accent-cyan);
             padding: 8px 18px;
             border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.84rem;
             font-weight: 600;
             cursor: pointer;
@@ -564,13 +729,13 @@ HTML_DASHBOARD = """
             align-items: center;
         }
         .mem-label {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.98rem;
             font-weight: 700;
             color: var(--accent-cyan);
         }
         .mem-char-badge {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.78rem;
             padding: 3px 10px;
             border-radius: 12px;
@@ -599,12 +764,13 @@ HTML_DASHBOARD = """
             border: 1px solid var(--border-panel);
             border-radius: 8px;
             padding: 14px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.86rem;
             color: var(--text-main);
             outline: none;
             resize: vertical;
             line-height: 1.45;
+            user-select: text;
         }
         .mem-textarea:focus { border-color: var(--accent-cyan); box-shadow: 0 0 12px rgba(0, 229, 255, 0.2); }
         .mem-card-foot {
@@ -632,12 +798,16 @@ HTML_DASHBOARD = """
         #graph-3d-container {
             position: relative;
             width: 100%;
-            height: 420px;
+            height: 440px;
             border-radius: 10px;
             overflow: hidden;
             border: 1px solid var(--border-panel);
             background: radial-gradient(circle at center, #0e172a 0%, #060911 100%);
             box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+            transition: height 0.3s ease;
+        }
+        #graph-3d-container.maximized {
+            height: 680px;
         }
         #graph-3d-viewport {
             width: 100%;
@@ -647,30 +817,44 @@ HTML_DASHBOARD = """
             position: absolute;
             top: 14px;
             left: 18px;
-            pointer-events: none;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.78rem;
             color: var(--accent-cyan);
-            background: rgba(10, 15, 29, 0.75);
-            padding: 6px 12px;
-            border-radius: 6px;
+            background: rgba(10, 15, 29, 0.8);
+            padding: 6px 14px;
+            border-radius: 8px;
             border: 1px solid var(--border-panel);
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
+        .graph-search-input {
+            background: rgba(6, 9, 17, 0.8);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            border-radius: 4px;
+            color: #fff;
+            padding: 3px 8px;
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
+            outline: none;
+            width: 140px;
+        }
+        .graph-search-input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 8px rgba(0, 229, 255, 0.3); }
         #graph-node-details {
             position: absolute;
             bottom: 14px;
             right: 18px;
-            background: rgba(10, 15, 29, 0.88);
+            background: rgba(10, 15, 29, 0.9);
             border: 1px solid var(--border-panel);
-            padding: 10px 16px;
+            padding: 12px 18px;
             border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.78rem;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
             color: #fff;
             display: none;
-            backdrop-filter: blur(10px);
-            max-width: 300px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            max-width: 320px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
         }
         .filter-tags { display: flex; gap: 8px; }
         .filter-tag {
@@ -681,7 +865,7 @@ HTML_DASHBOARD = """
             border-radius: 6px;
             font-size: 0.8rem;
             cursor: pointer;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             transition: all 0.2s;
         }
         .filter-tag:hover { color: var(--text-main); }
@@ -702,7 +886,7 @@ HTML_DASHBOARD = """
             width: 100%;
             border-collapse: collapse;
             font-size: 0.84rem;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
         }
         table.cortex-table th {
             background: rgba(10, 15, 29, 0.95);
@@ -745,7 +929,7 @@ HTML_DASHBOARD = """
             padding: 10px 14px;
             border-radius: 8px;
             font-size: 0.84rem;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             outline: none;
         }
         .form-input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.2); }
@@ -765,7 +949,7 @@ HTML_DASHBOARD = """
             font-size: 0.88rem;
             font-weight: 700;
             color: var(--accent-cyan);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
         }
         .curriculum-task {
             font-size: 0.94rem;
@@ -813,13 +997,13 @@ HTML_DASHBOARD = """
             align-items: center;
         }
         .skill-name {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 1.05rem;
             font-weight: 700;
             color: var(--accent-cyan);
         }
         .skill-score {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.82rem;
             font-weight: 700;
             padding: 4px 10px;
@@ -844,7 +1028,7 @@ HTML_DASHBOARD = """
             border-radius: 8px;
             padding: 10px 14px;
             font-size: 0.82rem;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
         }
         .skill-details summary { cursor: pointer; color: var(--accent-purple); font-weight: 600; outline: none; }
         .skill-code-box {
@@ -861,7 +1045,7 @@ HTML_DASHBOARD = """
             border: 1px solid rgba(16, 185, 129, 0.35);
             border-radius: 8px;
             padding: 12px 16px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.82rem;
             color: var(--accent-green);
             max-height: 200px;
@@ -890,7 +1074,7 @@ HTML_DASHBOARD = """
             font-size: 1.05rem;
             font-weight: 600;
             color: var(--accent-cyan);
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -900,7 +1084,7 @@ HTML_DASHBOARD = """
             border: 1px solid var(--border-panel);
             border-radius: 8px;
             padding: 16px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.82rem;
             color: var(--text-dim);
             max-height: 280px;
@@ -916,7 +1100,7 @@ HTML_DASHBOARD = """
             display: none;
             padding: 14px;
             border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.86rem;
         }
         .verdict-allow { background: rgba(16, 185, 129, 0.18); border: 1px solid var(--accent-green); color: var(--accent-green); }
@@ -929,7 +1113,7 @@ HTML_DASHBOARD = """
             color: var(--accent-red);
             padding: 4px 10px;
             border-radius: 6px;
-            font-family: 'JetBrains Mono', monospace;
+            font-family: var(--font-mono);
             font-size: 0.76rem;
             cursor: pointer;
             transition: all 0.2s;
@@ -943,7 +1127,10 @@ HTML_DASHBOARD = """
 
     <header>
         <div class="brand">
-            <div class="pulse-dot"></div>
+            <div class="conn-pill" id="conn-pill">
+                <div class="pulse-dot"></div>
+                <span id="conn-text">SYNCED</span>
+            </div>
             <span>CORTEX-OS // COGNITIVE RUNTIME</span>
         </div>
         <div class="ticker-bar">
@@ -972,19 +1159,24 @@ HTML_DASHBOARD = """
         <!-- Sidebar Navigation -->
         <aside class="nav-sidebar">
             <button class="nav-btn active" id="tab-stage" onclick="switchTab('stage')">
-                <span class="icon">💬</span> Cognitive Stage
+                <span class="nav-label"><span class="icon">💬</span> Cognitive Stage</span>
+                <span class="kbd-hint">^1</span>
             </button>
             <button class="nav-btn" id="tab-memory" onclick="switchTab('memory')">
-                <span class="icon">🧠</span> Working Memory
+                <span class="nav-label"><span class="icon">🧠</span> Working Memory</span>
+                <span class="kbd-hint">^2</span>
             </button>
             <button class="nav-btn" id="tab-graph" onclick="switchTab('graph')">
-                <span class="icon">🕸️</span> Bi-Temporal Graph
+                <span class="nav-label"><span class="icon">🕸️</span> Bi-Temporal Graph</span>
+                <span class="kbd-hint">^3</span>
             </button>
             <button class="nav-btn" id="tab-skills" onclick="switchTab('skills')">
-                <span class="icon">⚡</span> Skill Crystallizer
+                <span class="nav-label"><span class="icon">⚡</span> Skill Crystallizer</span>
+                <span class="kbd-hint">^4</span>
             </button>
             <button class="nav-btn" id="tab-governance" onclick="switchTab('governance')">
-                <span class="icon">🛡️</span> Cedar Governance
+                <span class="nav-label"><span class="icon">🛡️</span> Cedar Governance</span>
+                <span class="kbd-hint">^5</span>
             </button>
         </aside>
 
@@ -999,8 +1191,18 @@ HTML_DASHBOARD = """
                             I am CortexOS, your laptop-resident cognitive operating system. My 4-tier memory substrate, GWA cognitive tick, and autopoietic procedural skill engine are synchronized and ready. How can I assist you?
                         </div>
                     </div>
+
+                    <!-- Quick-Prompt Suggestion Chips -->
+                    <div class="quick-chips">
+                        <div class="quick-chip" onclick="quickPrompt('tell me about my system')">🖥️ System Telemetry</div>
+                        <div class="quick-chip" onclick="quickPrompt('which applications are open')">📱 Open Applications</div>
+                        <div class="quick-chip" onclick="quickPrompt('which song is being played')">🎵 Active Song</div>
+                        <div class="quick-chip" onclick="quickPrompt('audit working tree')">🔍 Audit Git Tree</div>
+                        <div class="quick-chip" onclick="triggerSleep()">💤 Digital Sleep</div>
+                    </div>
+
                     <div class="chat-input-bar">
-                        <input type="text" class="chat-input" id="chat-input" placeholder="Give CortexOS a task, instruction, or prompt..." onkeydown="if(event.key==='Enter') sendMessage()">
+                        <input type="text" class="chat-input" id="chat-input" placeholder="Ask CortexOS or assign a task (e.g. 'tell me about my system', 'which song is playing?')..." onkeydown="if(event.key==='Enter') sendMessage()">
                         <button class="btn-send" onclick="sendMessage()">Send</button>
                     </div>
                 </section>
@@ -1008,10 +1210,10 @@ HTML_DASHBOARD = """
                     <!-- 3D Global Workspace Satellite Core Visualizer -->
                     <div id="stage-3d-box" style="height: 150px; position:relative; border-radius:10px; overflow:hidden; background:rgba(6,9,17,0.7); border:1px solid var(--border-panel); box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
                         <canvas id="stage-3d-canvas" style="width:100%; height:100%;"></canvas>
-                        <div style="position:absolute; bottom:6px; left:10px; font-size:0.68rem; color:var(--accent-cyan); font-family:'JetBrains Mono',monospace;">GWA Orbit: 3 Perspectives (Analytic, Pragmatic, Cautious)</div>
+                        <div style="position:absolute; bottom:6px; left:10px; font-size:0.68rem; color:var(--accent-cyan); font-family:var(--font-mono);">GWA Orbit: 3 Perspectives (Analytic, Pragmatic, Cautious)</div>
                     </div>
 
-                    <h3 style="font-size:0.9rem; letter-spacing:0.5px; text-transform:uppercase; color:var(--accent-cyan); font-family:'JetBrains Mono', monospace;">Working Memory</h3>
+                    <h3 style="font-size:0.9rem; letter-spacing:0.5px; text-transform:uppercase; color:var(--accent-cyan); font-family:var(--font-mono);">Working Memory</h3>
                     <div class="block-card tilt-card">
                         <h4>persona_self</h4>
                         <p id="block-persona">Autonomous cognitive OS embodied on this laptop.</p>
@@ -1040,7 +1242,7 @@ HTML_DASHBOARD = """
                 <!-- 3D Holographic Memory Prisms Header Box -->
                 <div id="memory-3d-box" style="height: 130px; border-radius: 10px; overflow: hidden; background: rgba(6, 9, 17, 0.7); border: 1px solid var(--border-panel); position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
                     <canvas id="memory-3d-canvas" style="width: 100%; height: 100%;"></canvas>
-                    <div style="position: absolute; top: 8px; left: 14px; font-size: 0.76rem; color: var(--accent-cyan); font-family: 'JetBrains Mono', monospace;">3D Holographic Memory Prisms (Character Capacity & Allocation)</div>
+                    <div style="position: absolute; top: 8px; left: 14px; font-size: 0.76rem; color: var(--accent-cyan); font-family: var(--font-mono);">3D Holographic Memory Prisms (Character Capacity & Allocation)</div>
                 </div>
 
                 <div class="mem-grid">
@@ -1114,7 +1316,7 @@ HTML_DASHBOARD = """
 
                 <!-- Assert New Edge Form -->
                 <div class="graph-card tilt-card">
-                    <h3 style="font-size:0.95rem; font-family:'JetBrains Mono', monospace; color:var(--accent-cyan);">➕ Assert New Fact / Relation</h3>
+                    <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--accent-cyan);">➕ Assert New Fact / Relation</h3>
                     <div class="form-row">
                         <input type="text" class="form-input" id="assert-source" placeholder="Source Node (e.g. soham)">
                         <input type="text" class="form-input" id="assert-relation" placeholder="Relation (e.g. listens_to)">
@@ -1132,15 +1334,19 @@ HTML_DASHBOARD = """
                 <!-- Interactive 3D WebGL MAGMA Multi-Graph Canvas -->
                 <div class="graph-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3 style="font-size:0.95rem; font-family:'JetBrains Mono', monospace; color:var(--accent-cyan);">🌐 Interactive 3D WebGL Multi-Graph Universe</h3>
+                        <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--accent-cyan);">🌐 Interactive 3D WebGL Multi-Graph Universe</h3>
                         <div style="display:flex; gap:10px;">
-                            <button class="btn-ambient" onclick="reset3DGraphCamera()" style="font-size:0.75rem; padding:4px 10px;">Reset View</button>
-                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">3D Orbit Controls + Photon Laser Beams</span>
+                            <button class="btn-ambient" id="btn-graph-maximize" onclick="toggleGraphMaximize()" style="font-size:0.75rem; padding:4px 10px;">⛶ Expand</button>
+                            <button class="btn-ambient" onclick="reset3DGraphCamera()" style="font-size:0.75rem; padding:4px 10px;">↺ Center</button>
                         </div>
                     </div>
                     <div id="graph-3d-container">
                         <div id="graph-3d-viewport"></div>
-                        <div id="graph-3d-hud">🖱️ Drag: Rotate 3D | Wheel: Zoom | Right-Click: Pan | Hover/Click: Inspect</div>
+                        <div id="graph-3d-hud">
+                            <span>🔍 Find Node:</span>
+                            <input type="text" class="graph-search-input" id="graph-search-input" placeholder="Type node name..." oninput="searchGraphNode(this.value)">
+                            <span style="opacity:0.7; font-size:0.72rem;">Drag: Rotate | Wheel: Zoom | Click: Inspect</span>
+                        </div>
                         <div id="graph-node-details"></div>
                     </div>
                     <!-- Hidden legacy 2D canvas preserved for tests and fallback -->
@@ -1151,9 +1357,9 @@ HTML_DASHBOARD = """
                     <!-- Graph Relations Table -->
                     <div class="graph-card">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <h3 style="font-size:0.95rem; font-family:'JetBrains Mono', monospace; color:var(--text-main);">Verified Multi-Graph Relations</h3>
+                            <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--text-main);">Verified Multi-Graph Relations</h3>
                             <div class="filter-tags">
-                                <span class="filter-tag active" onclick="filterGraph('all', this)">ALL</span>
+                                <span class="filter-tag active" onclick="filterGraph('all', this)">ALL (<span id="count-all">0</span>)</span>
                                 <span class="filter-tag" onclick="filterGraph('semantic', this)">SEMANTIC</span>
                                 <span class="filter-tag" onclick="filterGraph('causal', this)">CAUSAL</span>
                                 <span class="filter-tag" onclick="filterGraph('temporal', this)">TEMPORAL</span>
@@ -1177,7 +1383,7 @@ HTML_DASHBOARD = """
 
                     <!-- Atomic Engrams -->
                     <div class="graph-card">
-                        <h3 style="font-size:0.95rem; font-family:'JetBrains Mono', monospace; color:var(--text-main);">Atomic Engrams (Digital Sleep)</h3>
+                        <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--text-main);">Atomic Engrams (Digital Sleep)</h3>
                         <div class="data-table-wrap">
                             <table class="cortex-table">
                                 <thead>
@@ -1244,7 +1450,7 @@ HTML_DASHBOARD = """
                     <div class="gov-card tilt-card">
                         <h3><span>⚡</span> Policy Decision Point (PDP) Live Tester</h3>
                         <div class="pdp-tester">
-                            <label style="font-size:0.8rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">Action to Test:</label>
+                            <label style="font-size:0.8rem; color:var(--text-dim); font-family:var(--font-mono);">Action to Test:</label>
                             <select class="form-input" id="pdp-action">
                                 <option value="file_read">file_read (Somatosensory / Inspect)</option>
                                 <option value="git_status">git_status (Read-Only)</option>
@@ -1253,7 +1459,7 @@ HTML_DASHBOARD = """
                                 <option value="git_push_remote">git_push_remote (Irreversible Push)</option>
                                 <option value="delete_directory_recursive">delete_directory_recursive (Destructive)</option>
                             </select>
-                            <label style="font-size:0.8rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">Target Resource Path:</label>
+                            <label style="font-size:0.8rem; color:var(--text-dim); font-family:var(--font-mono);">Target Resource Path:</label>
                             <input type="text" class="form-input" id="pdp-resource" value="c:/Users/soham/Desktop/self-conscious/cortex/server.py">
                             <button class="btn-action" onclick="testPolicy()">Evaluate Policy Gate</button>
                             <div class="pdp-result" id="pdp-result-box"></div>
@@ -1300,28 +1506,82 @@ HTML_DASHBOARD = """
     </main>
 
     <script>
-        // ==================== WEBSOCKET & CORE ROUTING ====================
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-        let socket = new WebSocket(wsUrl);
+        // ==================== 1. RESILIENT WEBSOCKET ROUTING ====================
+        let socket = null;
+        let activeTab = 'stage';
+        let isReconnecting = false;
+        let reconnectAttempts = 0;
 
-        socket.onopen = () => { console.log('Connected to CortexOS WebSocket'); };
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'state_update') {
-                updateTelemetry(data.state);
-            } else if (data.type === 'cortex_response') {
-                renderCortexResponse(data);
-                updateTelemetry(data.state);
-                trigger3DCognitivePulse(data.state ? data.state.entropy : 1.0);
-            } else if (data.type === 'hold_card') {
-                renderHoldCard(data);
-            } else if (data.type === 'ambient_tick') {
-                renderAmbientNotice(data);
-                updateTelemetry(data.state);
-                trigger3DCognitivePulse(data.state ? data.state.entropy : 1.0);
+        function connectWebSocket() {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+            
+            try {
+                socket = new WebSocket(wsUrl);
+            } catch (err) {
+                scheduleReconnect();
+                return;
             }
-        };
+
+            socket.onopen = () => {
+                console.log('Connected to CortexOS WebSocket');
+                reconnectAttempts = 0;
+                isReconnecting = false;
+                setConnectionStatus('SYNCED', 'online');
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'state_update') {
+                        updateTelemetry(data.state);
+                    } else if (data.type === 'cortex_response') {
+                        removeThinkingIndicator();
+                        renderCortexResponse(data);
+                        updateTelemetry(data.state);
+                        trigger3DCognitivePulse(data.state ? data.state.entropy : 1.0);
+                    } else if (data.type === 'hold_card') {
+                        removeThinkingIndicator();
+                        renderHoldCard(data);
+                    } else if (data.type === 'ambient_tick') {
+                        renderAmbientNotice(data);
+                        updateTelemetry(data.state);
+                        trigger3DCognitivePulse(data.state ? data.state.entropy : 1.0);
+                    }
+                } catch (e) {
+                    console.error('WebSocket parse error:', e);
+                }
+            };
+
+            socket.onclose = () => {
+                scheduleReconnect();
+            };
+
+            socket.onerror = (err) => {
+                console.warn('WebSocket error:', err);
+                socket.close();
+            };
+        }
+
+        function scheduleReconnect() {
+            if (isReconnecting) return;
+            isReconnecting = true;
+            reconnectAttempts++;
+            setConnectionStatus('RECONNECTING...', 'reconnecting');
+            const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 6000);
+            setTimeout(() => {
+                isReconnecting = false;
+                connectWebSocket();
+            }, delay);
+        }
+
+        function setConnectionStatus(text, statusClass) {
+            const pill = document.getElementById('conn-pill');
+            const lbl = document.getElementById('conn-text');
+            if (!pill || !lbl) return;
+            pill.className = `conn-pill ${statusClass}`;
+            lbl.innerText = text;
+        }
 
         function updateTelemetry(st) {
             if (!st) return;
@@ -1340,6 +1600,7 @@ HTML_DASHBOARD = """
 
         // Tab Switching Router
         function switchTab(tabName) {
+            activeTab = tabName;
             const tabs = ['stage', 'memory', 'graph', 'skills', 'governance'];
             tabs.forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
@@ -1348,19 +1609,24 @@ HTML_DASHBOARD = """
                 if (pane) pane.classList.toggle('active', t === tabName);
             });
 
-            if (tabName === 'memory') loadMemoryPane();
-            else if (tabName === 'graph') {
+            if (tabName === 'stage') {
+                requestAnimationFrame(onStageResize);
+            } else if (tabName === 'memory') {
+                loadMemoryPane();
+                requestAnimationFrame(onMemoryResize);
+            } else if (tabName === 'graph') {
                 loadGraphPane();
-                setTimeout(onGraphResize, 100);
+                requestAnimationFrame(onGraphResize);
+            } else if (tabName === 'skills') {
+                loadSkillsPane();
+            } else if (tabName === 'governance') {
+                loadGovernancePane();
             }
-            else if (tabName === 'skills') loadSkillsPane();
-            else if (tabName === 'governance') loadGovernancePane();
         }
 
-        // ==================== 1. THREE.JS PERSISTENT BACKGROUND ====================
+        // ==================== 2. MASTER THREE.JS ENGINE ====================
         let bgScene, bgCamera, bgRenderer, bgParticles, bgCoreMesh, bgRingMesh, bgGrid;
-        let mouseX = 0, mouseY = 0;
-        let targetRotX = 0, targetRotY = 0;
+        let mouseX = 0, mouseY = 0, targetRotX = 0, targetRotY = 0;
 
         function initBackground3D() {
             const canvas = document.getElementById('webgl-bg-canvas');
@@ -1371,19 +1637,19 @@ HTML_DASHBOARD = """
             bgCamera.position.z = 450;
             bgCamera.position.y = 80;
 
-            bgRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            bgRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
             bgRenderer.setSize(window.innerWidth, window.innerHeight);
-            bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
-            // Perspective Floor Grid
+            // Perspective Ground Grid
             bgGrid = new THREE.GridHelper(1600, 40, 0x00e5ff, 0x1e293b);
             bgGrid.position.y = -180;
-            bgGrid.material.opacity = 0.25;
+            bgGrid.material.opacity = 0.22;
             bgGrid.material.transparent = true;
             bgScene.add(bgGrid);
 
-            // 600 Synapse Particles
-            const particleCount = 600;
+            // 550 Synapse Particles
+            const particleCount = 550;
             const geom = new THREE.BufferGeometry();
             const positions = new Float32Array(particleCount * 3);
             for (let i = 0; i < particleCount * 3; i += 3) {
@@ -1394,7 +1660,7 @@ HTML_DASHBOARD = """
             geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
             const pMat = new THREE.PointsMaterial({
                 color: 0x00e5ff,
-                size: 3.2,
+                size: 3.0,
                 transparent: true,
                 opacity: 0.65,
                 blending: THREE.AdditiveBlending
@@ -1408,35 +1674,19 @@ HTML_DASHBOARD = """
 
             // Wireframe Icosahedron
             const icoGeom = new THREE.IcosahedronGeometry(70, 1);
-            const icoMat = new THREE.MeshBasicMaterial({
-                color: 0x38bdf8,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.35
-            });
+            const icoMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.35 });
             bgCoreMesh = new THREE.Mesh(icoGeom, icoMat);
             coreGroup.add(bgCoreMesh);
 
             // Inner Glowing Sphere
-            const innerGeom = new THREE.SphereGeometry(38, 24, 24);
-            const innerMat = new THREE.MeshBasicMaterial({
-                color: 0x00e5ff,
-                wireframe: true,
-                transparent: true,
-                opacity: 0.55
-            });
+            const innerGeom = new THREE.SphereGeometry(38, 20, 20);
+            const innerMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, wireframe: true, transparent: true, opacity: 0.55 });
             const innerCore = new THREE.Mesh(innerGeom, innerMat);
             coreGroup.add(innerCore);
 
             // Orbiting Accretion Synapse Ring
             const ringGeom = new THREE.RingGeometry(85, 95, 32);
-            const ringMat = new THREE.MeshBasicMaterial({
-                color: 0xc084fc,
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 0.35,
-                wireframe: true
-            });
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0xc084fc, side: THREE.DoubleSide, transparent: true, opacity: 0.35, wireframe: true });
             bgRingMesh = new THREE.Mesh(ringGeom, ringMat);
             bgRingMesh.rotation.x = Math.PI / 2.5;
             coreGroup.add(bgRingMesh);
@@ -1445,8 +1695,6 @@ HTML_DASHBOARD = """
 
             window.addEventListener('resize', onWindowResize);
             document.addEventListener('mousemove', onMouseMove);
-
-            animateBackground();
         }
 
         function onMouseMove(event) {
@@ -1460,71 +1708,48 @@ HTML_DASHBOARD = """
                 bgCamera.updateProjectionMatrix();
                 bgRenderer.setSize(window.innerWidth, window.innerHeight);
             }
+            if (activeTab === 'stage') onStageResize();
+            else if (activeTab === 'graph') onGraphResize();
+            else if (activeTab === 'memory') onMemoryResize();
         }
 
         function trigger3DCognitivePulse(entropy) {
             if (!bgCoreMesh) return;
-            const baseScale = 1.0;
-            const targetScale = 1.35;
             new TWEEN.Tween(bgCoreMesh.scale)
-                .to({ x: targetScale, y: targetScale, z: targetScale }, 150)
+                .to({ x: 1.35, y: 1.35, z: 1.35 }, 140)
                 .yoyo(true)
                 .repeat(1)
                 .easing(TWEEN.Easing.Quadratic.Out)
                 .start();
 
-            // Color pulse on high entropy
             if (entropy > 1.2 && bgCoreMesh.material) {
                 bgCoreMesh.material.color.setHex(0xc084fc);
                 setTimeout(() => { if (bgCoreMesh) bgCoreMesh.material.color.setHex(0x38bdf8); }, 800);
             }
         }
 
-        function animateBackground(time) {
-            requestAnimationFrame(animateBackground);
-            TWEEN.update();
-
-            if (bgParticles) {
-                bgParticles.rotation.y += 0.0006;
-                bgParticles.rotation.x += 0.0003;
-            }
-            if (bgCoreMesh) {
-                bgCoreMesh.rotation.x += 0.008;
-                bgCoreMesh.rotation.y += 0.012;
-            }
-            if (bgRingMesh) {
-                bgRingMesh.rotation.z += 0.015;
-            }
-
-            // Smooth Parallax
-            targetRotX += (mouseX - targetRotX) * 0.04;
-            targetRotY += (mouseY - targetRotY) * 0.04;
-            bgCamera.position.x = targetRotX * 0.5;
-            bgCamera.position.y = 80 - targetRotY * 0.3;
-            bgCamera.lookAt(0, 0, 0);
-
-            bgRenderer.render(bgScene, bgCamera);
-        }
-
-        // ==================== 2. THREE.JS COGNITIVE STAGE SATELLITES ====================
+        // ==================== 3. COGNITIVE STAGE SATELLITES ====================
         let stageScene, stageCamera, stageRenderer;
         let satGroup, satAnalytic, satPragmatic, satCautious;
+        let satAngle = 0;
 
         function initStage3D() {
             const canvas = document.getElementById('stage-3d-canvas');
             if (!canvas) return;
             const rect = canvas.getBoundingClientRect();
-            stageScene = new THREE.Scene();
+            const w = rect.width || 340;
+            const h = rect.height || 150;
 
-            stageCamera = new THREE.PerspectiveCamera(50, (rect.width || 340) / (rect.height || 150), 0.1, 1000);
+            stageScene = new THREE.Scene();
+            stageCamera = new THREE.PerspectiveCamera(50, w / h, 0.1, 1000);
             stageCamera.position.set(0, 20, 110);
             stageCamera.lookAt(0, 0, 0);
 
             stageRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-            stageRenderer.setSize(rect.width || 340, rect.height || 150);
+            stageRenderer.setSize(w, h);
+            stageRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
-            // Central Core
-            const coreGeom = new THREE.SphereGeometry(12, 20, 20);
+            const coreGeom = new THREE.SphereGeometry(12, 18, 18);
             const coreMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, wireframe: true });
             const core = new THREE.Mesh(coreGeom, coreMat);
             stageScene.add(core);
@@ -1532,8 +1757,7 @@ HTML_DASHBOARD = """
             satGroup = new THREE.Group();
             stageScene.add(satGroup);
 
-            // 3 Satellites: Analytic (Blue), Pragmatic (Green), Cautious (Amber)
-            const sGeom = new THREE.SphereGeometry(5, 16, 16);
+            const sGeom = new THREE.SphereGeometry(5, 14, 14);
             satAnalytic = new THREE.Mesh(sGeom, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
             satPragmatic = new THREE.Mesh(sGeom, new THREE.MeshBasicMaterial({ color: 0x10b981 }));
             satCautious = new THREE.Mesh(sGeom, new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
@@ -1541,47 +1765,40 @@ HTML_DASHBOARD = """
             satGroup.add(satAnalytic);
             satGroup.add(satPragmatic);
             satGroup.add(satCautious);
-
-            animateStage3D();
         }
 
-        let satAngle = 0;
-        function animateStage3D() {
-            requestAnimationFrame(animateStage3D);
-            satAngle += 0.025;
-            const radius = 42;
-
-            if (satAnalytic) satAnalytic.position.set(radius * Math.cos(satAngle), 8 * Math.sin(satAngle * 2), radius * Math.sin(satAngle));
-            if (satPragmatic) satPragmatic.position.set(radius * Math.cos(satAngle + 2.09), 8 * Math.sin((satAngle + 2.09) * 2), radius * Math.sin(satAngle + 2.09));
-            if (satCautious) satCautious.position.set(radius * Math.cos(satAngle + 4.18), 8 * Math.sin((satAngle + 4.18) * 2), radius * Math.sin(satAngle + 4.18));
-
-            if (satGroup) satGroup.rotation.y += 0.005;
-            if (stageRenderer && stageScene && stageCamera) {
-                stageRenderer.render(stageScene, stageCamera);
-            }
+        function onStageResize() {
+            const canvas = document.getElementById('stage-3d-canvas');
+            if (!canvas || !stageCamera || !stageRenderer) return;
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            if (w === 0 || h === 0) return;
+            stageCamera.aspect = w / h;
+            stageCamera.updateProjectionMatrix();
+            stageRenderer.setSize(w, h);
         }
 
-        // ==================== 3. THREE.JS 3D MULTI-GRAPH UNIVERSE ====================
+        // ==================== 4. 3D BI-TEMPORAL MULTI-GRAPH UNIVERSE ====================
         let graphScene, graphCamera, graphRenderer, graphControls;
-        let graphNodesGroup, graphEdgesGroup;
-        let graphRaycaster, graphMouse;
+        let graphNodesGroup, graphEdgesGroup, graphRaycaster, graphMouse;
         let graphNodeMeshes = [];
         let currentGraphEdges = [];
+        let isGraphInitialized = false;
 
-        function initGraph3D() {
+        function ensureGraph3DInit() {
+            if (isGraphInitialized) return;
             const container = document.getElementById('graph-3d-viewport');
-            if (!container) return;
+            if (!container || container.clientWidth === 0) return;
 
             graphScene = new THREE.Scene();
             graphCamera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 1, 3000);
             graphCamera.position.set(0, 120, 360);
 
-            graphRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            graphRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
             graphRenderer.setSize(container.clientWidth, container.clientHeight);
-            graphRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            graphRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
             container.appendChild(graphRenderer.domElement);
 
-            // OrbitControls
             graphControls = new THREE.OrbitControls(graphCamera, graphRenderer.domElement);
             graphControls.enableDamping = true;
             graphControls.dampingFactor = 0.06;
@@ -1590,7 +1807,6 @@ HTML_DASHBOARD = """
             graphControls.maxDistance = 800;
             graphControls.minDistance = 60;
 
-            // Ambient lights
             const ambLight = new THREE.AmbientLight(0xffffff, 0.9);
             graphScene.add(ambLight);
 
@@ -1599,18 +1815,20 @@ HTML_DASHBOARD = """
             graphScene.add(graphNodesGroup);
             graphScene.add(graphEdgesGroup);
 
-            // Raycaster
             graphRaycaster = new THREE.Raycaster();
             graphMouse = new THREE.Vector2();
 
             graphRenderer.domElement.addEventListener('mousemove', onGraphMouseMove);
             graphRenderer.domElement.addEventListener('click', onGraphClick);
-            window.addEventListener('resize', onGraphResize);
 
-            animateGraph3D();
+            isGraphInitialized = true;
+            if (currentGraphEdges.length > 0) {
+                render3DGraph(currentGraphEdges);
+            }
         }
 
         function onGraphResize() {
+            ensureGraph3DInit();
             const container = document.getElementById('graph-3d-viewport');
             if (!container || !graphCamera || !graphRenderer) return;
             const w = container.clientWidth;
@@ -1621,16 +1839,40 @@ HTML_DASHBOARD = """
             graphRenderer.setSize(w, h);
         }
 
+        function toggleGraphMaximize() {
+            const container = document.getElementById('graph-3d-container');
+            const btn = document.getElementById('btn-graph-maximize');
+            if (!container) return;
+            container.classList.toggle('maximized');
+            btn.innerText = container.classList.contains('maximized') ? '🗗 Minimize' : '⛶ Expand';
+            setTimeout(onGraphResize, 100);
+        }
+
         function reset3DGraphCamera() {
             if (!graphCamera || !graphControls) return;
             new TWEEN.Tween(graphCamera.position)
-                .to({ x: 0, y: 120, z: 360 }, 800)
+                .to({ x: 0, y: 120, z: 360 }, 700)
                 .easing(TWEEN.Easing.Cubic.Out)
                 .start();
             graphControls.target.set(0, 0, 0);
         }
 
+        function searchGraphNode(query) {
+            query = (query || '').trim().toLowerCase();
+            if (!query) return;
+            const match = graphNodeMeshes.find(m => m.userData.id.toLowerCase().includes(query));
+            if (match && graphControls && graphCamera) {
+                const pos = match.position;
+                new TWEEN.Tween(graphCamera.position)
+                    .to({ x: pos.x + 35, y: pos.y + 25, z: pos.z + 80 }, 600)
+                    .easing(TWEEN.Easing.Cubic.Out)
+                    .start();
+                graphControls.target.copy(pos);
+            }
+        }
+
         function onGraphMouseMove(event) {
+            if (!graphRenderer || !graphCamera) return;
             const rect = graphRenderer.domElement.getBoundingClientRect();
             graphMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             graphMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -1642,10 +1884,11 @@ HTML_DASHBOARD = """
             if (intersects.length > 0) {
                 const nodeData = intersects[0].object.userData;
                 hud.style.display = 'block';
+                const lyr = (nodeData.layer || 'semantic').toLowerCase();
                 hud.innerHTML = `
-                    <div style="font-weight:700; color:var(--accent-cyan); font-size:0.85rem; margin-bottom:2px;">Node: ${escapeHtml(nodeData.id)}</div>
-                    <div><b>Layer:</b> <span class="layer-badge layer-${nodeData.layer.toLowerCase()}">${nodeData.layer}</span></div>
-                    <div style="margin-top:4px; font-size:0.74rem; color:var(--text-dim);">Click node to focus & filter relations.</div>
+                    <div style="font-weight:700; color:var(--accent-cyan); font-size:0.86rem; margin-bottom:2px;">Node: ${escapeHtml(nodeData.id)}</div>
+                    <div><b>Layer:</b> <span class="layer-badge layer-${lyr}">${nodeData.layer}</span></div>
+                    <div style="margin-top:4px; font-size:0.74rem; color:var(--text-dim);">Click node to focus & inspect links.</div>
                 `;
             } else {
                 hud.style.display = 'none';
@@ -1653,6 +1896,7 @@ HTML_DASHBOARD = """
         }
 
         function onGraphClick(event) {
+            if (!graphRenderer || !graphCamera) return;
             const rect = graphRenderer.domElement.getBoundingClientRect();
             graphMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             graphMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -1663,7 +1907,7 @@ HTML_DASHBOARD = """
                 const targetMesh = intersects[0].object;
                 const pos = targetMesh.position;
                 new TWEEN.Tween(graphCamera.position)
-                    .to({ x: pos.x + 30, y: pos.y + 25, z: pos.z + 70 }, 700)
+                    .to({ x: pos.x + 30, y: pos.y + 25, z: pos.z + 70 }, 600)
                     .easing(TWEEN.Easing.Cubic.Out)
                     .start();
                 graphControls.target.copy(pos);
@@ -1675,14 +1919,14 @@ HTML_DASHBOARD = """
             canvas.width = 256;
             canvas.height = 64;
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(10, 15, 29, 0.7)';
+            ctx.fillStyle = 'rgba(10, 15, 29, 0.75)';
             ctx.roundRect ? ctx.roundRect(0, 0, 256, 64, 8) : ctx.fillRect(0, 0, 256, 64);
             ctx.fill();
             ctx.strokeStyle = colorHex || '#00e5ff';
             ctx.lineWidth = 3;
             ctx.stroke();
 
-            ctx.font = 'bold 24px "JetBrains Mono", monospace';
+            ctx.font = 'bold 22px "JetBrains Mono", monospace';
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -1697,19 +1941,16 @@ HTML_DASHBOARD = """
         }
 
         function render3DGraph(edges) {
-            // Also draw to hidden canvas for backwards compatibility
             drawGraphCanvas(edges);
-
+            if (!isGraphInitialized) ensureGraph3DInit();
             if (!graphScene) return;
 
-            // Clear old groups
             while (graphNodesGroup.children.length > 0) graphNodesGroup.remove(graphNodesGroup.children[0]);
             while (graphEdgesGroup.children.length > 0) graphEdgesGroup.remove(graphEdgesGroup.children[0]);
             graphNodeMeshes = [];
 
             if (!edges || edges.length === 0) return;
 
-            // Aggregate unique nodes
             const nodeMap = new Map();
             edges.forEach(e => {
                 if (!nodeMap.has(e.source_id)) nodeMap.set(e.source_id, { id: e.source_id, layer: e.layer });
@@ -1727,15 +1968,14 @@ HTML_DASHBOARD = """
                 n.y = radius * Math.sin(theta) * Math.sin(phi);
                 n.z = radius * Math.cos(phi);
 
-                // Determine color
                 let colHex = 0x00e5ff;
                 let cssCol = '#00e5ff';
-                if (n.layer === 'causal') { colHex = 0xf59e0b; cssCol = '#f59e0b'; }
-                else if (n.layer === 'temporal') { colHex = 0xc084fc; cssCol = '#c084fc'; }
-                else if (n.layer === 'entity') { colHex = 0x10b981; cssCol = '#10b981'; }
+                const lyr = (n.layer || 'semantic').toLowerCase();
+                if (lyr === 'causal') { colHex = 0xf59e0b; cssCol = '#f59e0b'; }
+                else if (lyr === 'temporal') { colHex = 0xc084fc; cssCol = '#c084fc'; }
+                else if (lyr === 'entity') { colHex = 0x10b981; cssCol = '#10b981'; }
 
-                // Sphere Node
-                const sGeom = new THREE.SphereGeometry(6.5, 24, 24);
+                const sGeom = new THREE.SphereGeometry(6.5, 20, 20);
                 const sMat = new THREE.MeshBasicMaterial({ color: colHex });
                 const mesh = new THREE.Mesh(sGeom, sMat);
                 mesh.position.set(n.x, n.y, n.z);
@@ -1743,14 +1983,12 @@ HTML_DASHBOARD = """
                 graphNodesGroup.add(mesh);
                 graphNodeMeshes.push(mesh);
 
-                // Halo ring
-                const haloGeom = new THREE.RingGeometry(8, 9.5, 24);
+                const haloGeom = new THREE.RingGeometry(8, 9.5, 20);
                 const haloMat = new THREE.MeshBasicMaterial({ color: colHex, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
                 const halo = new THREE.Mesh(haloGeom, haloMat);
                 halo.position.set(n.x, n.y, n.z);
                 graphNodesGroup.add(halo);
 
-                // Text Billboard Sprite
                 const sprite = makeTextSprite(n.id, cssCol);
                 sprite.position.set(n.x, n.y + 14, n.z);
                 graphNodesGroup.add(sprite);
@@ -1758,7 +1996,6 @@ HTML_DASHBOARD = """
 
             const posLookup = new Map(nodes.map(n => [n.id, n]));
 
-            // Add 3D Edges
             edges.forEach(e => {
                 const src = posLookup.get(e.source_id);
                 const tgt = posLookup.get(e.target_id);
@@ -1770,8 +2007,9 @@ HTML_DASHBOARD = """
                 ];
                 const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
                 let colHex = 0x00e5ff;
-                if (e.layer === 'causal') colHex = 0xf59e0b;
-                else if (e.layer === 'temporal') colHex = 0xc084fc;
+                const lyr = (e.layer || 'semantic').toLowerCase();
+                if (lyr === 'causal') colHex = 0xf59e0b;
+                else if (lyr === 'temporal') colHex = 0xc084fc;
 
                 const lineMat = new THREE.LineBasicMaterial({ color: colHex, transparent: true, opacity: 0.5, linewidth: 2 });
                 const line = new THREE.Line(lineGeom, lineMat);
@@ -1779,36 +2017,32 @@ HTML_DASHBOARD = """
             });
         }
 
-        function animateGraph3D() {
-            requestAnimationFrame(animateGraph3D);
-            if (graphControls) graphControls.update();
-            if (graphRenderer && graphScene && graphCamera) {
-                graphRenderer.render(graphScene, graphCamera);
-            }
-        }
-
-        // ==================== 4. THREE.JS WORKING MEMORY PRISMS ====================
+        // ==================== 5. WORKING MEMORY PRISMS ====================
         let memScene, memCamera, memRenderer;
         let memPrisms = [];
+        let isMemInitialized = false;
 
-        function initMemory3D() {
+        function ensureMemory3DInit() {
+            if (isMemInitialized) return;
             const canvas = document.getElementById('memory-3d-canvas');
-            if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
+            if (!canvas || canvas.clientWidth === 0) return;
+
+            const w = canvas.clientWidth || 600;
+            const h = canvas.clientHeight || 130;
 
             memScene = new THREE.Scene();
-            memCamera = new THREE.PerspectiveCamera(45, (rect.width || 600) / (rect.height || 130), 1, 1000);
+            memCamera = new THREE.PerspectiveCamera(45, w / h, 1, 1000);
             memCamera.position.set(0, 35, 120);
             memCamera.lookAt(0, 0, 0);
 
             memRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-            memRenderer.setSize(rect.width || 600, rect.height || 130);
+            memRenderer.setSize(w, h);
+            memRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 
             const grid = new THREE.GridHelper(300, 20, 0x00e5ff, 0x1e293b);
             grid.position.y = -15;
             memScene.add(grid);
 
-            // 4 Floating Holographic Prisms
             const blockNames = ['persona_self', 'human_profile', 'workspace_state', 'scratchpad_stm'];
             const colors = [0x00e5ff, 0x38bdf8, 0xc084fc, 0x10b981];
             memPrisms = [];
@@ -1823,7 +2057,19 @@ HTML_DASHBOARD = """
                 memPrisms.push(prism);
             });
 
-            animateMemory3D();
+            isMemInitialized = true;
+        }
+
+        function onMemoryResize() {
+            ensureMemory3DInit();
+            const canvas = document.getElementById('memory-3d-canvas');
+            if (!canvas || !memCamera || !memRenderer) return;
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            if (w === 0 || h === 0) return;
+            memCamera.aspect = w / h;
+            memCamera.updateProjectionMatrix();
+            memRenderer.setSize(w, h);
         }
 
         window.updateMemoryPrismsFromState = function(blocks) {
@@ -1837,37 +2083,301 @@ HTML_DASHBOARD = """
             });
         };
 
-        function animateMemory3D() {
-            requestAnimationFrame(animateMemory3D);
-            memPrisms.forEach((p, idx) => {
-                p.rotation.y += 0.015;
-                p.position.y = Math.sin(Date.now() * 0.003 + idx) * 3;
-            });
-            if (memRenderer && memScene && memCamera) {
-                memRenderer.render(memScene, memCamera);
+        // ==================== UNIFIED HIGH-FRAMERATE ANIMATION LOOP ====================
+        function masterRenderLoop() {
+            requestAnimationFrame(masterRenderLoop);
+            TWEEN.update();
+
+            // Ambient background is always active
+            if (bgParticles) {
+                bgParticles.rotation.y += 0.0006;
+                bgParticles.rotation.x += 0.0003;
+            }
+            if (bgCoreMesh) {
+                bgCoreMesh.rotation.x += 0.008;
+                bgCoreMesh.rotation.y += 0.012;
+            }
+            if (bgRingMesh) {
+                bgRingMesh.rotation.z += 0.015;
+            }
+
+            targetRotX += (mouseX - targetRotX) * 0.04;
+            targetRotY += (mouseY - targetRotY) * 0.04;
+            if (bgCamera) {
+                bgCamera.position.x = targetRotX * 0.5;
+                bgCamera.position.y = 80 - targetRotY * 0.3;
+                bgCamera.lookAt(0, 0, 0);
+            }
+            if (bgRenderer && bgScene && bgCamera) {
+                bgRenderer.render(bgScene, bgCamera);
+            }
+
+            // Only render active pane's 3D viewport (huge performance boost!)
+            if (activeTab === 'stage') {
+                satAngle += 0.025;
+                const radius = 42;
+                if (satAnalytic) satAnalytic.position.set(radius * Math.cos(satAngle), 8 * Math.sin(satAngle * 2), radius * Math.sin(satAngle));
+                if (satPragmatic) satPragmatic.position.set(radius * Math.cos(satAngle + 2.09), 8 * Math.sin((satAngle + 2.09) * 2), radius * Math.sin(satAngle + 2.09));
+                if (satCautious) satCautious.position.set(radius * Math.cos(satAngle + 4.18), 8 * Math.sin((satAngle + 4.18) * 2), radius * Math.sin(satAngle + 4.18));
+                if (satGroup) satGroup.rotation.y += 0.005;
+                if (stageRenderer && stageScene && stageCamera) {
+                    stageRenderer.render(stageScene, stageCamera);
+                }
+            } else if (activeTab === 'graph') {
+                if (graphControls) graphControls.update();
+                if (graphRenderer && graphScene && graphCamera) {
+                    graphRenderer.render(graphScene, graphCamera);
+                }
+            } else if (activeTab === 'memory') {
+                memPrisms.forEach((p, idx) => {
+                    p.rotation.y += 0.015;
+                    p.position.y = Math.sin(Date.now() * 0.003 + idx) * 3;
+                });
+                if (memRenderer && memScene && memCamera) {
+                    memRenderer.render(memScene, memCamera);
+                }
             }
         }
 
-        // ==================== 5. 3D CARD PHYSICS TILT ====================
-        function initTiltPhysics() {
-            document.querySelectorAll('.tilt-card').forEach(card => {
-                card.addEventListener('mousemove', (e) => {
-                    const rect = card.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    const centerX = rect.width / 2;
-                    const centerY = rect.height / 2;
-                    const rotX = ((y - centerY) / centerY) * -8;
-                    const rotY = ((x - centerX) / centerX) * 8;
-                    card.style.transform = `perspective(1000px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) scale3d(1.01, 1.01, 1.01)`;
-                });
-                card.addEventListener('mouseleave', () => {
-                    card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
-                });
+        // ==================== 6. EVENT-DELEGATED 3D CARD TILT ====================
+        function initDelegatedTiltPhysics() {
+            document.addEventListener('pointermove', (e) => {
+                const card = e.target.closest('.tilt-card');
+                if (!card) return;
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotX = ((y - centerY) / centerY) * -8;
+                const rotY = ((x - centerX) / centerX) * 8;
+                card.style.setProperty('--mouse-x', `${(x / rect.width * 100).toFixed(1)}%`);
+                card.style.setProperty('--mouse-y', `${(y / rect.height * 100).toFixed(1)}%`);
+                card.style.transform = `perspective(1000px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) scale3d(1.01, 1.01, 1.01)`;
+            });
+
+            document.addEventListener('pointerout', (e) => {
+                const card = e.target.closest('.tilt-card');
+                if (!card || card.contains(e.relatedTarget)) return;
+                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
             });
         }
 
-        // ==================== Working Memory Functions ====================
+        // ==================== 7. CHAT, THINKING INDICATOR & MARKDOWN ====================
+        let thinkingStepsInterval = null;
+
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            appendMessage(text, 'msg-user');
+            input.value = '';
+
+            showThinkingIndicator();
+
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'user_message', content: text }));
+            } else {
+                removeThinkingIndicator();
+                appendMessage('WebSocket not connected. Reconnecting in background...', 'msg-cortex');
+                connectWebSocket();
+            }
+        }
+
+        function quickPrompt(text) {
+            const input = document.getElementById('chat-input');
+            if (input) {
+                input.value = text;
+                sendMessage();
+            }
+        }
+
+        function showThinkingIndicator() {
+            removeThinkingIndicator();
+            const container = document.getElementById('chat-messages');
+            const bubble = document.createElement('div');
+            bubble.id = 'cortex-thinking-indicator';
+            bubble.className = 'thinking-bubble';
+            bubble.innerHTML = `
+                <div class="thinking-spinner">
+                    <div class="spinner-ring"></div>
+                    <div class="spinner-core"></div>
+                </div>
+                <div class="thinking-text">
+                    <div class="thinking-title">CORTEX COGNITIVE ARBITRATION</div>
+                    <div class="thinking-step" id="thinking-step-lbl">Evaluating specialist perspectives (Analytic, Pragmatic, Cautious)...</div>
+                </div>
+            `;
+            container.appendChild(bubble);
+            container.scrollTop = container.scrollHeight;
+
+            const steps = [
+                'Evaluating specialist perspectives (Analytic, Pragmatic, Cautious)...',
+                'Consulting somatosensory bus & hardware telemetry...',
+                'Evaluating Cedar PDP sub-millisecond policy gate...',
+                'Running GWA convergent Critic arbitration...',
+                'Synthesizing final response...'
+            ];
+            let stepIdx = 0;
+            thinkingStepsInterval = setInterval(() => {
+                stepIdx = (stepIdx + 1) % steps.length;
+                const lbl = document.getElementById('thinking-step-lbl');
+                if (lbl) lbl.innerText = steps[stepIdx];
+            }, 800);
+        }
+
+        function removeThinkingIndicator() {
+            if (thinkingStepsInterval) {
+                clearInterval(thinkingStepsInterval);
+                thinkingStepsInterval = null;
+            }
+            const ind = document.getElementById('cortex-thinking-indicator');
+            if (ind) ind.remove();
+        }
+
+        function appendMessage(text, className) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = `message-bubble ${className}`;
+            div.innerText = text;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+            return div;
+        }
+
+        function formatMarkdown(text) {
+            if (!text) return '';
+            // Escape HTML tags first
+            let out = escapeHtml(text);
+
+            // Code blocks: ```lang ... ```
+            out = out.replace(/```([a-zA-Z0-9_\-]+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+                const langName = lang || 'shell';
+                const id = 'code-' + Math.random().toString(36).substring(2, 9);
+                return `
+                    <div class="code-block-wrap">
+                        <div class="code-block-head">
+                            <span>${langName}</span>
+                            <button class="btn-copy" onclick="copyCode('${id}', this)">📋 Copy</button>
+                        </div>
+                        <div class="code-block-body" id="${id}">${code}</div>
+                    </div>
+                `;
+            });
+
+            // Inline code `...`
+            out = out.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; color:#38bdf8; font-family:var(--font-mono); font-size:0.86rem;">$1</code>');
+
+            // Bold **text**
+            out = out.replace(/\*\*([^*]+)\*\*/g, '<b style="color:#fff;">$1</b>');
+
+            // Bullets - item
+            out = out.replace(/^(\s*)-\s+(.*)$/gm, '<div style="margin-left:14px;">• $2</div>');
+
+            // Line breaks
+            out = out.replace(/\n/g, '<br>');
+
+            return out;
+        }
+
+        function copyCode(id, btn) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            navigator.clipboard.writeText(el.innerText).then(() => {
+                btn.innerText = '✓ Copied!';
+                btn.style.color = '#10b981';
+                setTimeout(() => { btn.innerText = '📋 Copy'; btn.style.color = 'var(--accent-cyan)'; }, 2000);
+            });
+        }
+
+        function renderCortexResponse(data) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = 'message-bubble msg-cortex';
+            div.innerHTML = `<div>${formatMarkdown(data.response)}</div>`;
+            
+            if (data.candidates && data.candidates.length > 0) {
+                const thoughtDetails = document.createElement('details');
+                thoughtDetails.className = 'thought-card';
+                thoughtDetails.innerHTML = `<summary>[Inner Monologue / 3 Perspectives]</summary>` +
+                    data.candidates.map(c => {
+                        const perspLower = (c.perspective || '').toLowerCase();
+                        let badgeClass = 'persp-analytic';
+                        if (perspLower.includes('pragmatic')) badgeClass = 'persp-pragmatic';
+                        else if (perspLower.includes('cautious')) badgeClass = 'persp-cautious';
+                        return `<div style="margin-top:4px;"><span class="persp-badge ${badgeClass}">${escapeHtml(c.perspective)}</span> ${escapeHtml(c.thought_text)} <b style="color:var(--accent-cyan);">(${c.score > 0 ? '+' : ''}${c.score})</b></div>`;
+                    }).join('');
+                div.appendChild(thoughtDetails);
+            }
+            if (data.action_result && data.action_result.stdout && (data.action_result.action === 'command_run' || data.action_result.action === 'crystallize_skill')) {
+                const outBox = document.createElement('div');
+                outBox.style = 'margin-top:10px; font-family:var(--font-mono); font-size:0.8rem; background:rgba(0,0,0,0.6); border:1px solid rgba(16,185,129,0.3); padding:8px 12px; border-radius:6px; color:#10b981; max-height:160px; overflow-y:auto; white-space:pre-wrap;';
+                outBox.innerText = '$ ' + data.action_result.stdout;
+                div.appendChild(outBox);
+            }
+
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function renderHoldCard(data) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.className = 'hold-card';
+            div.innerHTML = `
+                <h4>⚠️ Human-in-the-Loop Hold (Governance Circuit Breaker)</h4>
+                <p><b>Action:</b> ${JSON.stringify(data.card.action)}</p>
+                <p><b>Reason:</b> ${data.card.reason}</p>
+                <div class="hold-actions">
+                    <button class="btn-approve" onclick="resolveHold(true, this)">Approve & Execute</button>
+                    <button class="btn-reject" onclick="resolveHold(false, this)">Reject</button>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function resolveHold(approved, btn) {
+            socket.send(JSON.stringify({ type: 'hold_decision', approved: approved }));
+            btn.parentElement.innerHTML = approved ? '<span style="color:#10b981">Approved</span>' : '<span style="color:#ef4444">Rejected</span>';
+        }
+
+        function renderAmbientNotice(data) {
+            const container = document.getElementById('chat-messages');
+            const div = document.createElement('div');
+            div.style = 'font-size:0.8rem; color:#94a3b8; font-style:italic; padding:6px 14px; background:rgba(0,229,255,0.06); border-left:3px solid #00e5ff; border-radius:4px; margin-top:8px;';
+            div.innerText = `[Ambient Cognitive Notice]: ${data.notice}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function toggleAmbient() {
+            const btn = document.getElementById('btn-ambient');
+            const willBeActive = !btn.classList.contains('active');
+            btn.classList.toggle('active');
+            btn.innerText = willBeActive ? 'AMBIENT: ON (15s)' : 'AMBIENT: OFF';
+            socket.send(JSON.stringify({ type: 'toggle_ambient', active: willBeActive }));
+        }
+
+        async function triggerSleep() {
+            appendMessage('Initiating 4-Stage Asynchronous Digital Sleep...', 'msg-cortex');
+            const res = await fetch('/api/sleep', { method: 'POST' });
+            const data = await res.json();
+            appendMessage(`Digital Sleep Consolidation complete in ${data.report.duration_seconds}s! Extracted engrams: ${data.report.engrams_extracted}, pre-computed files: ${data.report.codebase_files_analyzed}.`, 'msg-cortex');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // ==================== 8. WORKING MEMORY FUNCTIONS ====================
         async function loadMemoryPane() {
             try {
                 const res = await fetch('/api/blocks');
@@ -1915,12 +2425,16 @@ HTML_DASHBOARD = """
             }
         }
 
-        // ==================== Bi-Temporal Graph Functions ====================
+        // ==================== 9. BI-TEMPORAL GRAPH FUNCTIONS ====================
         async function loadGraphPane() {
             try {
                 const res = await fetch('/api/graph');
                 const data = await res.json();
                 currentGraphEdges = data.edges || [];
+                
+                const countAll = document.getElementById('count-all');
+                if (countAll) countAll.innerText = currentGraphEdges.length;
+
                 renderGraphEdges(currentGraphEdges);
 
                 // Render Engrams
@@ -1948,7 +2462,7 @@ HTML_DASHBOARD = """
                 return;
             }
             tbody.innerHTML = edges.map(edge => {
-                const layerClass = `layer-${edge.layer.toLowerCase()}`;
+                const layerClass = `layer-${(edge.layer || 'semantic').toLowerCase()}`;
                 return `
                     <tr>
                         <td><b>${escapeHtml(edge.source_id)}</b> ➔ <span style="color:var(--accent-cyan); font-weight:600;">[${escapeHtml(edge.relation)}]</span> ➔ <b>${escapeHtml(edge.target_id)}</b></td>
@@ -1972,7 +2486,7 @@ HTML_DASHBOARD = """
             if (layer === 'all') {
                 renderGraphEdges(currentGraphEdges);
             } else {
-                const filtered = currentGraphEdges.filter(e => e.layer.toLowerCase() === layer.toLowerCase());
+                const filtered = currentGraphEdges.filter(e => (e.layer || '').toLowerCase() === layer.toLowerCase());
                 renderGraphEdges(filtered);
             }
         }
@@ -2006,19 +2520,17 @@ HTML_DASHBOARD = """
             }
         }
 
-        // ==================== Skill Crystallizer Functions ====================
+        // ==================== 10. SKILL CRYSTALLIZER FUNCTIONS ====================
         async function loadSkillsPane() {
             try {
                 const res = await fetch('/api/skills');
                 const data = await res.json();
 
-                // Curriculum
                 if (data.curriculum_challenge) {
                     document.getElementById('curr-level').innerText = (data.curriculum_challenge.level || 'BEGINNER').toUpperCase();
                     document.getElementById('curr-task').innerText = data.curriculum_challenge.task || '';
                 }
 
-                // Grid
                 const grid = document.getElementById('skills-grid');
                 if (!data.skills || data.skills.length === 0) {
                     grid.innerHTML = `<div style="grid-column: span 2; text-align:center; color:var(--text-dim); padding:40px;">No crystallized procedural skills in library yet. Use the synthesizer above!</div>`;
@@ -2044,13 +2556,11 @@ HTML_DASHBOARD = """
                         </div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
                             <button class="btn-action" onclick="runSkill('${s.name}', ${idx})">▶ Test Run Tool</button>
-                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">Sandbox Checkpointed</span>
+                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">Sandbox Checkpointed</span>
                         </div>
                         <div class="skill-output-box" id="skill-out-${idx}"></div>
                     </div>
                 `).join('');
-
-                initTiltPhysics();
             } catch (e) {
                 console.error('Failed to load skills:', e);
             }
@@ -2094,7 +2604,7 @@ HTML_DASHBOARD = """
         async function triggerSkillSynthesis(desc) {
             switchTab('stage');
             appendMessage(`Synthesizing autopoietic skill: "${desc}"...`, 'msg-user');
-            appendMessage(`Activating Tool Generator & Sandbox Refiner loop (max 3 attempts). Creating shadow git checkpoint...`, 'msg-cortex');
+            showThinkingIndicator();
 
             try {
                 const res = await fetch('/api/skills/synthesize', {
@@ -2103,13 +2613,15 @@ HTML_DASHBOARD = """
                     body: JSON.stringify({ description: desc })
                 });
                 const data = await res.json();
+                removeThinkingIndicator();
                 appendMessage(`Skill Synthesis Result:\n${data.stdout || JSON.stringify(data)}`, 'msg-cortex');
             } catch (e) {
+                removeThinkingIndicator();
                 appendMessage(`Synthesis Error: ${e}`, 'msg-cortex');
             }
         }
 
-        // ==================== Cedar Governance Functions ====================
+        // ==================== 11. CEDAR GOVERNANCE FUNCTIONS ====================
         async function loadGovernancePane() {
             try {
                 const res = await fetch('/api/governance');
@@ -2119,7 +2631,6 @@ HTML_DASHBOARD = """
                 document.getElementById('gov-policy-code').innerText = data.policy_code || '# No custom policies configured';
                 document.getElementById('gov-working-diff').innerText = data.working_tree_diff || 'Working tree clean.';
 
-                // Checkpoints Table
                 const tbody = document.getElementById('checkpoints-body');
                 if (!data.checkpoints || data.checkpoints.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-dim);">No shadow checkpoints recorded yet.</td></tr>`;
@@ -2204,108 +2715,7 @@ HTML_DASHBOARD = """
             }
         }
 
-        // ==================== Cognitive Chat Functions ====================
-        function sendMessage() {
-            const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-            if (!text) return;
-            
-            appendMessage(text, 'msg-user');
-            input.value = '';
-
-            socket.send(JSON.stringify({ type: 'user_message', content: text }));
-        }
-
-        function appendMessage(text, className) {
-            const container = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            div.className = `message-bubble ${className}`;
-            div.innerText = text;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-            return div;
-        }
-
-        function renderCortexResponse(data) {
-            const container = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            div.className = 'message-bubble msg-cortex';
-            div.innerHTML = `<div>${data.response}</div>`;
-            
-            if (data.candidates && data.candidates.length > 0) {
-                const thoughtDetails = document.createElement('details');
-                thoughtDetails.className = 'thought-card';
-                thoughtDetails.innerHTML = `<summary>[Inner Monologue / 3 Perspectives]</summary>` +
-                    data.candidates.map(c => `<div>* <b>${c.perspective}</b>: ${escapeHtml(c.thought_text)} (${c.score > 0 ? '+' : ''}${c.score})</div>`).join('');
-                div.appendChild(thoughtDetails);
-            }
-            if (data.action_result && data.action_result.stdout && (data.action_result.action === 'command_run' || data.action_result.action === 'crystallize_skill')) {
-                const outBox = document.createElement('div');
-                outBox.style = 'margin-top:8px; font-family:"JetBrains Mono", monospace; font-size:0.8rem; background:rgba(0,0,0,0.4); padding:6px 10px; border-radius:4px; color:#10b981;';
-                outBox.innerText = '$ ' + data.action_result.stdout;
-                div.appendChild(outBox);
-            }
-
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function renderHoldCard(data) {
-            const container = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            div.className = 'hold-card';
-            div.innerHTML = `
-                <h4>⚠️ Human-in-the-Loop Hold (Governance Circuit Breaker)</h4>
-                <p><b>Action:</b> ${JSON.stringify(data.card.action)}</p>
-                <p><b>Reason:</b> ${data.card.reason}</p>
-                <div class="hold-actions">
-                    <button class="btn-approve" onclick="resolveHold(true, this)">Approve & Execute</button>
-                    <button class="btn-reject" onclick="resolveHold(false, this)">Reject</button>
-                </div>
-            `;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function resolveHold(approved, btn) {
-            socket.send(JSON.stringify({ type: 'hold_decision', approved: approved }));
-            btn.parentElement.innerHTML = approved ? '<span style="color:#10b981">Approved</span>' : '<span style="color:#ef4444">Rejected</span>';
-        }
-
-        function renderAmbientNotice(data) {
-            const container = document.getElementById('chat-messages');
-            const div = document.createElement('div');
-            div.style = 'font-size:0.8rem; color:#94a3b8; font-style:italic; padding:6px 14px; background:rgba(0,229,255,0.06); border-left:3px solid #00e5ff; border-radius:4px; margin-top:8px;';
-            div.innerText = `[Ambient Cognitive Notice]: ${data.notice}`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function toggleAmbient() {
-            const btn = document.getElementById('btn-ambient');
-            const willBeActive = !btn.classList.contains('active');
-            btn.classList.toggle('active');
-            btn.innerText = willBeActive ? 'AMBIENT: ON (15s)' : 'AMBIENT: OFF';
-            socket.send(JSON.stringify({ type: 'toggle_ambient', active: willBeActive }));
-        }
-
-        async function triggerSleep() {
-            appendMessage('Initiating 4-Stage Asynchronous Digital Sleep...', 'msg-cortex');
-            const res = await fetch('/api/sleep', { method: 'POST' });
-            const data = await res.json();
-            appendMessage(`Digital Sleep Consolidation complete in ${data.report.duration_seconds}s! Extracted engrams: ${data.report.engrams_extracted}, pre-computed files: ${data.report.codebase_files_analyzed}.`, 'msg-cortex');
-        }
-
-        function escapeHtml(str) {
-            if (!str) return '';
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-        }
-
+        // ==================== 12. MEDIA & PANIC CONTROLS ====================
         async function pollLiveMedia() {
             try {
                 const res = await fetch('/api/media');
@@ -2357,13 +2767,27 @@ HTML_DASHBOARD = """
             }
         }
 
-        // Initialize 3D Graphics and Tilt Physics on Window Load
+        // Keyboard Navigation Shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === '1') { e.preventDefault(); switchTab('stage'); }
+            else if (e.ctrlKey && e.key === '2') { e.preventDefault(); switchTab('memory'); }
+            else if (e.ctrlKey && e.key === '3') { e.preventDefault(); switchTab('graph'); }
+            else if (e.ctrlKey && e.key === '4') { e.preventDefault(); switchTab('skills'); }
+            else if (e.ctrlKey && e.key === '5') { e.preventDefault(); switchTab('governance'); }
+            else if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                switchTab('stage');
+                document.getElementById('chat-input').focus();
+            }
+        });
+
+        // Initialize Everything on Window Load
         window.addEventListener('DOMContentLoaded', () => {
+            connectWebSocket();
             initBackground3D();
             initStage3D();
-            initGraph3D();
-            initMemory3D();
-            initTiltPhysics();
+            initDelegatedTiltPhysics();
+            masterRenderLoop();
         });
     </script>
 </body>

@@ -91,10 +91,13 @@ class GitShadowCheckpointManager:
             # 7. Snapshot stateful files
             target_snapshot_dir = self.snapshots_dir / task_id / label
             target_snapshot_dir.mkdir(parents=True, exist_ok=True)
-            for fname in [".env", "cortex_memory.sqlite", "cortex_memory.sqlite-wal", "cortex_memory.sqlite-shm"]:
+            for fname in [".env", "cortex_memory.sqlite"]:
                 src = self.workspace_dir / fname
                 if src.exists():
-                    shutil.copy2(src, target_snapshot_dir / fname)
+                    try:
+                        shutil.copy2(src, target_snapshot_dir / fname)
+                    except OSError:
+                        pass
 
             return commit_sha
         finally:
@@ -128,7 +131,10 @@ class GitShadowCheckpointManager:
         if src_snapshot_dir.exists():
             for item in src_snapshot_dir.iterdir():
                 if item.is_file():
-                    shutil.copy2(item, self.workspace_dir / item.name)
+                    try:
+                        shutil.copy2(item, self.workspace_dir / item.name)
+                    except OSError:
+                        pass
 
         return True
 

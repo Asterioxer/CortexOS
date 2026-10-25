@@ -30,11 +30,15 @@ class MemorySubstrate:
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
         conn.row_factory = sqlite3.Row
-        # Enforce WAL mode for safe concurrent reader/writer concurrency
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
+        try:
+            # Enforce WAL mode for safe concurrent reader/writer concurrency
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA busy_timeout=30000;")
+        except sqlite3.OperationalError:
+            pass
         return conn
 
     def _init_db(self):
@@ -197,8 +201,9 @@ class MemorySubstrate:
             conn.commit()
         return edge_id
 
-    def query_graph_at_time(self, timestamp: float, limit: int = 10) -> List[Dict[str, Any]]:
+    def query_graph_at_time(self, timestamp: Optional[float] = None, limit: int = 10) -> List[Dict[str, Any]]:
         """Queries facts that were valid at specific point in time."""
+        ts = timestamp if timestamp is not None else time.time()
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -206,7 +211,7 @@ class MemorySubstrate:
                 FROM graph_edges
                 WHERE valid_from <= ? AND (valid_to IS NULL OR valid_to >= ?)
                 LIMIT ?
-            """, (timestamp, timestamp, limit))
+            """, (ts + 0.05, ts, limit))
             return [dict(row) for row in cursor.fetchall()]
 
     def get_all_graph_edges(self, limit: int = 100) -> List[Dict[str, Any]]:
