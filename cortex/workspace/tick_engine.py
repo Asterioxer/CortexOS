@@ -335,6 +335,24 @@ class GWACognitiveTickEngine:
                 media = await self.somato.get_active_media_playback()
                 return {"action": "get_media", "media": media, "status": "SUCCESS"}, None
 
+            elif action_type == "media_control":
+                cmd = action.get("command") or action.get("resource") or "toggle"
+                res = await self.somato.control_media_playback(cmd)
+                return {"action": "media_control", "command": cmd, "result": res, "status": "SUCCESS"}, None
+
+            elif action_type == "get_active_window":
+                win = self.somato.get_active_window()
+                return {"action": "get_active_window", "window": win, "status": "SUCCESS"}, None
+
+            elif action_type == "get_clipboard":
+                clip = self.somato.get_clipboard_text()
+                return {"action": "get_clipboard", "clipboard": clip, "status": "SUCCESS"}, None
+
+            elif action_type == "set_clipboard":
+                txt = action.get("text") or action.get("resource") or ""
+                res = self.somato.set_clipboard_text(txt)
+                return {"action": "set_clipboard", "status": res.get("status", "SUCCESS")}, None
+
             elif action_type == "find_process":
                 q = action.get("query") or resource or ""
                 matches = self.somato.find_process(q)

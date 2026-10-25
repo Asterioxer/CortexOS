@@ -107,11 +107,29 @@ class LocalInferenceClient:
         perception_match = re.search(r"<current_perception>\s*(.*?)\s*</current_perception>", global_state_prompt, re.DOTALL)
         user_input = perception_match.group(1).lower() if perception_match else global_state_prompt.lower()
 
-        # 1. Media / Song / Audio query
+        # 1. Media Control (pause, resume, play, skip, next)
+        if any(k in user_input for k in ["pause song", "pause music", "pause audio", "pause the", "stop song", "stop music"]):
+            return {"confidence": 0.99, "action": {"action": "media_control", "command": "pause"}}
+        if any(k in user_input for k in ["resume song", "resume music", "play song", "play music", "unpause"]):
+            return {"confidence": 0.99, "action": {"action": "media_control", "command": "play"}}
+        if any(k in user_input for k in ["next song", "next track", "skip song", "skip track", "skip to next"]):
+            return {"confidence": 0.99, "action": {"action": "media_control", "command": "next"}}
+        if any(k in user_input for k in ["previous song", "previous track", "prev song", "last song"]):
+            return {"confidence": 0.99, "action": {"action": "media_control", "command": "previous"}}
+
+        # 2. Media / Song / Audio query
         if any(k in user_input for k in ["song", "music", "playing", "audio", "track", "media"]):
             return {"confidence": 0.98, "action": {"action": "get_media"}}
 
-        # 2. Open User Applications query
+        # 3. Active Focused Window query
+        if any(k in user_input for k in ["active window", "focused window", "current window", "what am i looking at", "foreground window", "what window"]):
+            return {"confidence": 0.98, "action": {"action": "get_active_window"}}
+
+        # 4. Clipboard query
+        if any(k in user_input for k in ["clipboard", "what did i copy", "read clipboard", "clipboard content"]):
+            return {"confidence": 0.98, "action": {"action": "get_clipboard"}}
+
+        # 5. Open User Applications query
         if any(k in user_input for k in ["applications are open", "apps are open", "what apps", "open applications", "which applications", "running applications"]):
             return {"confidence": 0.98, "action": {"action": "get_user_applications", "top_n": 8}}
 
@@ -391,6 +409,24 @@ class LocalInferenceClient:
                     for it in items[:15]
                 ]
                 return f"I inspected directory `{target}` ({len(items)} items found):\n\n" + "\n".join(item_strs)
+
+            if act_name == "media_control" and "result" in action_result:
+                r = action_result["result"]
+                if r.get("status") == "SUCCESS":
+                    return f"I executed media command: **{r.get('action')}** on `{r.get('app')}`."
+                return f"Media control update: {r.get('message', r.get('error', 'Unable to control active media session.'))}"
+
+            if act_name == "get_active_window" and "window" in action_result:
+                w = action_result["window"]
+                return f"You are currently focused on window **\"{w.get('title')}\"** (Application: `{w.get('process')}`, PID: {w.get('pid')})."
+
+            if act_name == "get_clipboard" and "clipboard" in action_result:
+                c = action_result["clipboard"]
+                txt = c.get("text", "")
+                if txt:
+                    preview = txt if len(txt) < 300 else txt[:300] + "..."
+                    return f"I checked your Windows clipboard ({c.get('length')} chars):\n\n```\n{preview}\n```"
+                return "Your Windows clipboard is currently empty."
 
         # 2. Optimized LLM response for conversational / deliberative inquiries
         prompt = (

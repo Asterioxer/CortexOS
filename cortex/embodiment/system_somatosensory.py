@@ -286,6 +286,93 @@ class SystemSomatosensory:
         except Exception as e:
             return {"command": command, "exit_code": -2, "stdout": "", "stderr": str(e), "status": "EXCEPTION"}
 
+    async def control_media_playback(self, command: str = "toggle") -> Dict[str, Any]:
+        """Controls active Windows GSMTC media playback (play, pause, toggle, next, previous)."""
+        try:
+            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as SM
+            mgr = await SM.request_async()
+            session = mgr.get_current_session()
+            if not session:
+                return {"status": "NO_SESSION", "message": "No active media session detected on this laptop."}
+
+            cmd_lower = command.lower()
+            success = False
+            action_taken = ""
+            if "pause" in cmd_lower:
+                success = await session.try_pause_async()
+                action_taken = "Paused"
+            elif "play" in cmd_lower or "resume" in cmd_lower:
+                success = await session.try_play_async()
+                action_taken = "Playing"
+            elif "next" in cmd_lower or "skip" in cmd_lower:
+                success = await session.try_skip_next_async()
+                action_taken = "Skipped to next track"
+            elif "prev" in cmd_lower or "back" in cmd_lower:
+                success = await session.try_skip_previous_async()
+                action_taken = "Returned to previous track"
+            else:
+                success = await session.try_toggle_play_pause_async()
+                action_taken = "Toggled play/pause"
+
+            return {
+                "status": "SUCCESS" if success else "FAILED",
+                "action": action_taken,
+                "app": session.source_app_user_model_id
+            }
+        except Exception as e:
+            return {"status": "ERROR", "error": str(e)}
+
+    def get_active_window(self) -> Dict[str, Any]:
+        """Returns focused window title and process name via Win32 API."""
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            hwnd = user32.GetForegroundWindow()
+            length = user32.GetWindowTextLengthW(hwnd)
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            title = buf.value
+            
+            pid = ctypes.c_ulong()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            proc_name = ""
+            try:
+                proc = psutil.Process(pid.value)
+                proc_name = proc.name()
+            except Exception:
+                pass
+            return {
+                "title": title or "Desktop / Windows Shell",
+                "process": proc_name or "explorer.exe",
+                "pid": pid.value,
+                "status": "SUCCESS"
+            }
+        except Exception as e:
+            return {"title": "Unknown", "process": "Unknown", "error": str(e), "status": "ERROR"}
+
+    def get_clipboard_text(self) -> Dict[str, Any]:
+        """Reads text from Windows clipboard."""
+        try:
+            res = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", "Get-Clipboard"],
+                capture_output=True, text=True, timeout=3, encoding="utf-8", errors="replace"
+            )
+            text = (res.stdout or "").strip()
+            return {"text": text, "length": len(text), "status": "SUCCESS"}
+        except Exception as e:
+            return {"text": "", "error": str(e), "status": "ERROR"}
+
+    def set_clipboard_text(self, text: str) -> Dict[str, Any]:
+        """Sets text to Windows clipboard."""
+        try:
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", "$input | Set-Clipboard"],
+                input=text, capture_output=True, text=True, timeout=3, encoding="utf-8", errors="replace"
+            )
+            return {"status": "SUCCESS" if proc.returncode == 0 else "ERROR"}
+        except Exception as e:
+            return {"error": str(e), "status": "ERROR"}
+
     def get_summary_snapshot(self) -> str:
         """Compact somatosensory snapshot string for injection into cognitive prompt."""
         t = self.get_hardware_telemetry()

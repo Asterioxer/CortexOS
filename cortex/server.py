@@ -61,6 +61,9 @@ class CheckpointRestoreRequest(BaseModel):
     task_id: str
     label: Optional[str] = "pre"
 
+class MediaControlRequest(BaseModel):
+    command: str = "toggle"
+
 
 HTML_DASHBOARD = """
 <!DOCTYPE html>
@@ -780,6 +783,13 @@ HTML_DASHBOARD = """
             <div class="ticker-item">H(W) <span class="val" id="entropy-val">1.00</span></div>
             <div class="ticker-item">TEMP <span class="val" id="temp-val">0.40</span></div>
             <div class="ticker-item">UQ <span class="val" id="uq-val" style="color:var(--accent-green)">PASS</span></div>
+            <div class="ticker-item" id="ticker-media" style="cursor:pointer;" onclick="pollLiveMedia()" title="Click to refresh audio">
+                <span style="color:var(--accent-cyan);">🎵</span>
+                <span class="val" id="media-ticker-text" style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Detecting media...</span>
+                <button onclick="controlMedia('previous', event)" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:0.75rem;" title="Previous track">⏮</button>
+                <button onclick="controlMedia('toggle', event)" style="background:transparent; border:none; color:var(--accent-cyan); cursor:pointer; font-size:0.85rem;" title="Play/Pause">⏯</button>
+                <button onclick="controlMedia('next', event)" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:0.75rem;" title="Next track">⏭</button>
+            </div>
             <button class="btn-ambient" id="btn-ambient" onclick="toggleAmbient()">AMBIENT: OFF</button>
             <button class="btn-sleep" onclick="triggerSleep()">DIGITAL SLEEP</button>
         </div>
@@ -930,6 +940,15 @@ HTML_DASHBOARD = """
                         </select>
                         <button class="btn-action" onclick="assertFact()">Assert Fact</button>
                     </div>
+                </div>
+
+                <!-- Interactive Visual MAGMA Multi-Graph Canvas -->
+                <div class="graph-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="font-size:0.95rem; font-family:'JetBrains Mono', monospace; color:var(--accent-cyan);">🌐 Visual MAGMA Multi-Graph Canvas</h3>
+                        <span style="font-size:0.75rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">Dynamic Force Layout (Semantic, Causal, Temporal, Entity)</span>
+                    </div>
+                    <canvas id="graph-canvas" width="800" height="220" style="width:100%; height:220px; background:rgba(10,14,23,0.9); border:1px solid var(--border-subtle); border-radius:6px;"></canvas>
                 </div>
 
                 <div class="graph-layout">
@@ -1205,6 +1224,7 @@ HTML_DASHBOARD = """
         }
 
         function renderGraphEdges(edges) {
+            drawGraphCanvas(edges);
             const tbody = document.getElementById('graph-edges-body');
             if (!edges || edges.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-dim);">No graph edges found.</td></tr>`;
@@ -1220,6 +1240,77 @@ HTML_DASHBOARD = """
                     </tr>
                 `;
             }).join('');
+        }
+
+        function drawGraphCanvas(edges) {
+            const canvas = document.getElementById('graph-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!edges || edges.length === 0) {
+                ctx.fillStyle = '#64748b';
+                ctx.font = '12px "JetBrains Mono"';
+                ctx.textAlign = 'center';
+                ctx.fillText('No active relations found. Assert one below!', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            const nodes = new Map();
+            edges.forEach(e => {
+                if (!nodes.has(e.source_id)) nodes.set(e.source_id, { id: e.source_id, layer: e.layer });
+                if (!nodes.has(e.target_id)) nodes.set(e.target_id, { id: e.target_id, layer: e.layer });
+            });
+
+            const nodeArr = Array.from(nodes.values());
+            const cx = canvas.width / 2;
+            const cy = canvas.height / 2;
+            const radius = Math.min(cx, cy) - 35;
+
+            nodeArr.forEach((node, idx) => {
+                const angle = (idx / nodeArr.length) * 2 * Math.PI;
+                node.x = cx + radius * Math.cos(angle);
+                node.y = cy + radius * Math.sin(angle);
+            });
+
+            const nodeMap = new Map(nodeArr.map(n => [n.id, n]));
+
+            // Draw links
+            edges.forEach(e => {
+                const src = nodeMap.get(e.source_id);
+                const tgt = nodeMap.get(e.target_id);
+                if (!src || !tgt) return;
+
+                ctx.beginPath();
+                ctx.moveTo(src.x, src.y);
+                ctx.lineTo(tgt.x, tgt.y);
+                let col = 'rgba(56, 189, 248, 0.35)';
+                if (e.layer === 'causal') col = 'rgba(245, 158, 11, 0.35)';
+                else if (e.layer === 'temporal') col = 'rgba(168, 85, 247, 0.35)';
+                ctx.strokeStyle = col;
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            });
+
+            // Draw nodes
+            nodeArr.forEach(node => {
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, 8, 0, 2 * Math.PI);
+                let col = '#38bdf8';
+                if (node.layer === 'causal') col = '#f59e0b';
+                else if (node.layer === 'temporal') col = '#a855f7';
+                ctx.fillStyle = col;
+                ctx.shadowColor = col;
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.fillStyle = '#f1f5f9';
+                ctx.font = '10px "JetBrains Mono"';
+                ctx.textAlign = 'center';
+                const label = node.id.length > 14 ? node.id.substring(0, 12) + '..' : node.id;
+                ctx.fillText(label, node.x, node.y + 18);
+            });
         }
 
         function filterGraph(layer, btn) {
@@ -1559,6 +1650,38 @@ HTML_DASHBOARD = """
                 .replace(/"/g, '&quot;')
                 .replace(/'/g, '&#039;');
         }
+
+        async function pollLiveMedia() {
+            try {
+                const res = await fetch('/api/media');
+                const data = await res.json();
+                const ticker = document.getElementById('media-ticker-text');
+                if (!ticker) return;
+                if (data.title && data.title !== 'Unknown Title') {
+                    ticker.innerText = `${data.title} - ${data.artist || ''}`;
+                    ticker.style.color = '#10b981';
+                } else {
+                    ticker.innerText = 'No active audio';
+                    ticker.style.color = 'var(--text-dim)';
+                }
+            } catch (e) {}
+        }
+        setInterval(pollLiveMedia, 6000);
+        pollLiveMedia();
+
+        async function controlMedia(cmd, evt) {
+            if (evt) evt.stopPropagation();
+            try {
+                await fetch('/api/media/control', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: cmd })
+                });
+                setTimeout(pollLiveMedia, 800);
+            } catch (e) {
+                console.error('Media control failed:', e);
+            }
+        }
     </script>
 </body>
 </html>
@@ -1581,6 +1704,17 @@ async def get_status():
         "blocks": {k: {"label": b.label, "value": b.value, "limit": b.char_limit} for k, b in wm.blocks.items()},
         "policy": stack["policy"].cedar_path
     }
+
+# Live Media Playback & Controls
+@app.get("/api/media")
+async def get_live_media():
+    somato = stack["engine"].somato
+    return await somato.get_active_media_playback()
+
+@app.post("/api/media/control")
+async def control_live_media(req: MediaControlRequest):
+    somato = stack["engine"].somato
+    return await somato.control_media_playback(req.command)
 
 # 1. Working Memory Endpoints
 @app.get("/api/blocks")

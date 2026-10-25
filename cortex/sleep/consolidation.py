@@ -124,10 +124,38 @@ class DigitalSleepPipeline:
         out_file = self.workspace_dir / ".cortex" / "lora_training_dataset.jsonl"
         out_file.parent.mkdir(parents=True, exist_ok=True)
         
-        sample = {
-            "instruction": "I need to safely inspect the git status and memory state.",
-            "response": "I will perform a read-only inspection through verified System 1 reflexes."
-        }
+        samples_count = 0
         with open(out_file, "w", encoding="utf-8") as f:
-            f.write(json.dumps(sample) + "\n")
-        return 1
+            with self.memory._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT input_payload, thought_trace, action_taken, outcome
+                    FROM raw_episodes
+                    WHERE input_payload IS NOT NULL AND input_payload != ''
+                    ORDER BY id DESC LIMIT 50
+                """)
+                rows = cursor.fetchall()
+                for row in rows:
+                    prompt = row["input_payload"]
+                    thought = row["thought_trace"]
+                    action = row["action_taken"]
+                    sample = {
+                        "instruction": f"As CortexOS, evaluate and address: {prompt}",
+                        "thought": thought,
+                        "action": action,
+                        "outcome": row["outcome"]
+                    }
+                    f.write(json.dumps(sample) + "\n")
+                    samples_count += 1
+
+            if samples_count == 0:
+                sample = {
+                    "instruction": "I need to safely inspect the git status and memory state.",
+                    "thought": "[Pragmatic]: Perform non-destructive read-only telemetry inspection.",
+                    "action": "{'action': 'git_status'}",
+                    "outcome": "[RESPONSE]"
+                }
+                f.write(json.dumps(sample) + "\n")
+                samples_count = 1
+
+        return samples_count

@@ -30,6 +30,17 @@ def test_working_memory_api():
     assert updated_data["status"] == "SUCCESS"
     assert "Testing pane update from pytest." in updated_data["value"]
 
+def test_media_api():
+    res = client.get("/api/media")
+    assert res.status_code == 200
+    m = res.json()
+    assert "active" in m
+
+    res_ctrl = client.post("/api/media/control", json={"command": "toggle"})
+    assert res_ctrl.status_code == 200
+    ctrl_data = res_ctrl.json()
+    assert "status" in ctrl_data
+
 def test_graph_and_engrams_api():
     # 1. Assert a fact
     res_assert = client.post("/api/graph/assert", json={
