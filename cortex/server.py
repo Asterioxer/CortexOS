@@ -3753,7 +3753,7 @@ async def get_processes_telemetry():
                     "ppid": child.ppid(),
                     "name": child.name(),
                     "status": child.status(),
-                    "cpu_pct": round(child.cpu_percent(interval=0.01), 1),
+                    "cpu_pct": round(child.cpu_percent(interval=None), 1),
                     "mem_mb": round(child.memory_info().rss / (1024 * 1024), 2),
                     "cmdline": " ".join(child.cmdline()[:4]) if child.cmdline() else ""
                 })

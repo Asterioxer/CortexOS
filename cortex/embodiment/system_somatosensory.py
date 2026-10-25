@@ -490,16 +490,24 @@ class SystemSomatosensory:
         except Exception as e:
             return {"error": str(e), "status": "ERROR"}
 
+    def _get_pycaw_volume_interface(self):
+        """Helper to get IAudioEndpointVolume interface across pycaw versions."""
+        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+        from comtypes import CLSCTX_ALL
+        from ctypes import cast, POINTER
+        devices = AudioUtilities.GetSpeakers()
+        if hasattr(devices, "EndpointVolume") and devices.EndpointVolume is not None:
+            return devices.EndpointVolume
+        elif hasattr(devices, "Activate"):
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            return cast(interface, POINTER(IAudioEndpointVolume))
+        raise RuntimeError("No compatible pycaw volume interface found")
+
     def set_volume(self, level: int) -> Dict[str, Any]:
         """Adjusts master audio volume (0-100)."""
         target = max(0, min(100, int(level)))
         try:
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-            from comtypes import CLSCTX_ALL
-            from ctypes import cast, POINTER
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            volume = self._get_pycaw_volume_interface()
             volume.SetMasterVolumeLevelScalar(target / 100.0, None)
             return {"status": "SUCCESS", "volume": target, "message": f"Volume set to {target}%."}
         except Exception:
@@ -516,12 +524,7 @@ class SystemSomatosensory:
     def get_volume(self) -> Dict[str, Any]:
         """Gets current master volume and mute status."""
         try:
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-            from comtypes import CLSCTX_ALL
-            from ctypes import cast, POINTER
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            volume = self._get_pycaw_volume_interface()
             current = int(round(volume.GetMasterVolumeLevelScalar() * 100))
             is_muted = bool(volume.GetMute())
             return {"status": "SUCCESS", "volume": current, "muted": is_muted}
@@ -531,12 +534,7 @@ class SystemSomatosensory:
     def toggle_mute(self) -> Dict[str, Any]:
         """Toggles audio mute state."""
         try:
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-            from comtypes import CLSCTX_ALL
-            from ctypes import cast, POINTER
-            devices = AudioUtilities.GetSpeakers()
-            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-            volume = cast(interface, POINTER(IAudioEndpointVolume))
+            volume = self._get_pycaw_volume_interface()
             new_mute = not bool(volume.GetMute())
             volume.SetMute(new_mute, None)
             return {"status": "SUCCESS", "muted": new_mute, "message": "Audio muted" if new_mute else "Audio unmuted"}
