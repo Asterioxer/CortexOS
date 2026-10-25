@@ -107,3 +107,24 @@ def test_governance_api():
     assert res_cp.status_code == 200
     assert res_cp.json()["status"] == "SUCCESS"
     assert "sha" in res_cp.json()
+
+def test_panic_killswitch_api():
+    # 1. Trigger panic
+    res_trig = client.post("/api/governance/panic")
+    assert res_trig.status_code == 200
+    assert res_trig.json()["status"] == "PANIC_TRIGGERED"
+
+    # 2. Check panic status
+    res_st = client.get("/api/governance/panic")
+    assert res_st.status_code == 200
+    assert res_st.json()["panic_active"] is True
+
+    # 3. Reset panic
+    res_reset = client.post("/api/governance/reset_panic")
+    assert res_reset.status_code == 200
+    assert res_reset.json()["status"] == "PANIC_RESET"
+
+    # 4. Verify clean status
+    res_st2 = client.get("/api/governance/panic")
+    assert res_st2.status_code == 200
+    assert res_st2.json()["panic_active"] is False

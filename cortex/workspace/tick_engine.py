@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 import numpy as np
 from cortex.embodiment.system_somatosensory import SystemSomatosensory
+from cortex.embodiment.stall_breaker import StallBreaker
 
 TransitionTag = Literal["[THINK_MORE]", "[RESPONSE]", "[NO_OP]"]
 
@@ -151,6 +152,7 @@ class GWACognitiveTickEngine:
         self.somato = somatosensory or SystemSomatosensory()
         self.state = GlobalWorkspaceState()
         self.drive = IntrinsicDriveMonitor()
+        self.stall_breaker = StallBreaker()
 
     async def run_cognitive_tick(
         self,
@@ -158,6 +160,18 @@ class GWACognitiveTickEngine:
         human_approval: bool = False
     ) -> TickResult:
         self.state.tick_id += 1
+
+        # Check Hardware Panic Killswitch before any cognitive perception/action
+        if self.stall_breaker.is_panic_triggered():
+            panic_msg = f"⚠️ HARDWARE PANIC KILLSWITCH ACTIVE: {self.stall_breaker.panic_reason or 'Operator halt override.'} All autonomous mutations halted."
+            return TickResult(
+                transition="[NO_OP]",
+                tick_id=self.state.tick_id,
+                action_executed=None,
+                action_result={"status": "PANIC_HALTED", "reason": self.stall_breaker.panic_reason},
+                user_response=panic_msg,
+                temperature=0.0
+            )
         
         # PHASE 1: PERCEIVE & RETRIEVE (Attention Spotlight)
         rag_queries = await self.llm.generate_attention_queries(

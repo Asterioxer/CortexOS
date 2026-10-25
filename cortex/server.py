@@ -792,6 +792,7 @@ HTML_DASHBOARD = """
             </div>
             <button class="btn-ambient" id="btn-ambient" onclick="toggleAmbient()">AMBIENT: OFF</button>
             <button class="btn-sleep" onclick="triggerSleep()">DIGITAL SLEEP</button>
+            <button class="btn-panic" id="btn-panic" onclick="togglePanicKillswitch()" style="background:rgba(239,68,68,0.2); border:1px solid var(--accent-red); color:var(--accent-red); padding:6px 14px; border-radius:6px; font-family:'JetBrains Mono', monospace; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.2s;">🚨 PANIC STOP</button>
         </div>
     </header>
     <main>
@@ -1682,6 +1683,25 @@ HTML_DASHBOARD = """
                 console.error('Media control failed:', e);
             }
         }
+
+        async function togglePanicKillswitch() {
+            const btn = document.getElementById('btn-panic');
+            const isPanic = btn.innerText.includes('RESET');
+            if (isPanic) {
+                await fetch('/api/governance/reset_panic', { method: 'POST' });
+                btn.innerText = '🚨 PANIC STOP';
+                btn.style.background = 'rgba(239, 68, 68, 0.2)';
+                btn.style.color = 'var(--accent-red)';
+                appendMessage('Operator reset panic switch. Normal cognitive ticks resumed.', 'msg-cortex');
+            } else {
+                if (!confirm('Activate Emergency Hardware Panic Switch? This halts all autonomous actions immediately.')) return;
+                await fetch('/api/governance/panic', { method: 'POST' });
+                btn.innerText = '🛡️ RESET PANIC';
+                btn.style.background = '#ef4444';
+                btn.style.color = '#fff';
+                appendMessage('🚨 EMERGENCY PANIC KILLSWITCH TRIGGERED! All autonomous execution and actions are frozen.', 'msg-cortex');
+            }
+        }
     </script>
 </body>
 </html>
@@ -1889,6 +1909,26 @@ async def restore_checkpoint(req: CheckpointRestoreRequest):
         return {"status": "SUCCESS" if success else "FAILED"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/api/governance/panic")
+async def get_panic_status():
+    breaker = stack["engine"].stall_breaker
+    return {"panic_active": breaker.is_panic_triggered(), "panic_reason": breaker.panic_reason}
+
+@app.post("/api/governance/panic")
+async def trigger_panic():
+    breaker = stack["engine"].stall_breaker
+    sandbox = stack["sandbox"]
+    breaker.trigger_panic("Emergency operator killswitch from Web Dashboard")
+    task_id = f"panic-{int(time.time())}"
+    sha = sandbox.checkpoint_mgr.create_checkpoint(task_id, label="panic_snapshot")
+    return {"status": "PANIC_TRIGGERED", "checkpoint_sha": sha[:10]}
+
+@app.post("/api/governance/reset_panic")
+async def reset_panic():
+    breaker = stack["engine"].stall_breaker
+    breaker.reset_panic()
+    return {"status": "PANIC_RESET"}
 
 # 5. Sleep Consolidation Endpoint
 @app.post("/api/sleep")

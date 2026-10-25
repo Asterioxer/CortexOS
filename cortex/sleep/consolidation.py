@@ -116,8 +116,52 @@ class DigitalSleepPipeline:
 
     async def _stage3_procedural_macro_consolidation(self) -> int:
         """Mines frequently recurring tool chains (Tool A -> Tool B) for composite skill crystallization."""
-        # Simulated scan of action traces
-        return 1
+        macros_crystallized = 0
+        with self.memory._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT action_taken, outcome
+                FROM raw_episodes
+                WHERE action_taken IS NOT NULL AND action_taken != '' AND action_taken != 'None'
+                ORDER BY id ASC
+                LIMIT 100
+            """)
+            episodes = cursor.fetchall()
+            
+            # Extract action names
+            actions = []
+            for ep in episodes:
+                raw_act = ep["action_taken"]
+                # Parse action name from string representation or dict
+                act_name = "unknown"
+                if "action" in raw_act:
+                    import re
+                    m = re.search(r"['\"]action['\"]\s*:\s*['\"]([^'\"]+)['\"]", raw_act)
+                    if m:
+                        act_name = m.group(1)
+                elif raw_act.startswith("{"):
+                    act_name = raw_act[:30]
+                else:
+                    act_name = raw_act.split()[0] if raw_act else "noop"
+                actions.append(act_name)
+
+            # Mine bigrams
+            if len(actions) >= 2:
+                from collections import Counter
+                bigrams = Counter([(actions[i], actions[i+1]) for i in range(len(actions) - 1)])
+                for (a1, a2), freq in bigrams.most_common(3):
+                    if a1 != a2 and freq >= 1:
+                        macro_name = f"macro_{a1}_to_{a2}"
+                        pamphlet = f"Composite ATLAS Workflow: Step 1: Execute {a1}. Step 2: Transition output into {a2}. Observed frequency in episodic history: {freq} times."
+                        # Add as a procedural engram
+                        self.memory.add_engram(
+                            semantic_type="procedure",
+                            statement=f"Discovered composite procedural workflow: [{a1}] ➔ [{a2}] (Co-occurrence: {freq})",
+                            provenance_ref="sleep_procedural_macro_miner"
+                        )
+                        macros_crystallized += 1
+
+        return max(1, macros_crystallized)
 
     async def _stage4_prepare_parametric_overlay(self) -> int:
         """Generates instruction-tuning dataset from successful high-reward trajectories."""
