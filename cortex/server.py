@@ -73,153 +73,224 @@ HTML_DASHBOARD = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CortexOS | Autonomous Cognitive Operating System</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- Three.js + OrbitControls + Tween.js for Super Smooth 3D Graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <style>
         :root {
-            --bg-dark: #0a0e17;
-            --bg-card: rgba(16, 23, 38, 0.75);
-            --border-panel: rgba(56, 189, 248, 0.2);
+            --bg-dark: #070a13;
+            --bg-card: rgba(13, 20, 36, 0.72);
+            --bg-card-hover: rgba(18, 28, 51, 0.82);
+            --border-panel: rgba(56, 189, 248, 0.22);
+            --border-glow: rgba(56, 189, 248, 0.45);
             --border-subtle: rgba(255, 255, 255, 0.08);
-            --accent-cyan: #38bdf8;
-            --accent-blue: #3b82f6;
+            --accent-cyan: #00e5ff;
+            --accent-blue: #38bdf8;
             --accent-green: #10b981;
             --accent-yellow: #f59e0b;
             --accent-red: #ef4444;
-            --accent-purple: #a855f7;
+            --accent-purple: #c084fc;
             --text-main: #f1f5f9;
             --text-dim: #94a3b8;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
             font-family: 'Inter', -apple-system, sans-serif;
-            background: radial-gradient(circle at 15% 15%, #0f172a, #0a0e17 80%);
+            background: #060911;
             color: var(--text-main);
             height: 100vh;
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            position: relative;
         }
+
+        /* Persistent Ambient Three.js Canvas */
+        #webgl-bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Cybernetic Header HUD */
         header {
-            height: 60px;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(12px);
+            height: 64px;
+            background: rgba(10, 15, 29, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border-panel);
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 24px;
-            z-index: 10;
+            z-index: 20;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
         }
         .brand {
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-family: 'JetBrains Mono', monospace;
+            gap: 14px;
+            font-family: 'Orbitron', 'JetBrains Mono', monospace;
             font-weight: 700;
-            font-size: 1.1rem;
+            font-size: 1.05rem;
             color: var(--accent-cyan);
-            letter-spacing: -0.5px;
+            letter-spacing: 1px;
+            text-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
         }
         .pulse-dot {
-            width: 10px;
-            height: 10px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
             background: var(--accent-green);
-            box-shadow: 0 0 10px var(--accent-green);
-            animation: pulse 2s infinite;
+            box-shadow: 0 0 14px var(--accent-green);
+            animation: pulse-glow 2s infinite;
         }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+        @keyframes pulse-glow {
+            0% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 8px var(--accent-green); }
+            50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 18px var(--accent-green); }
+            100% { transform: scale(0.9); opacity: 0.6; box-shadow: 0 0 8px var(--accent-green); }
+        }
         .ticker-bar {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
         }
         .ticker-item {
             display: flex;
             align-items: center;
             gap: 6px;
-            background: rgba(30, 41, 59, 0.6);
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: 1px solid var(--border-subtle);
+            background: rgba(18, 28, 51, 0.75);
+            backdrop-filter: blur(8px);
+            padding: 5px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-panel);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
         }
-        .ticker-item span.val { color: var(--accent-cyan); font-weight: 600; }
+        .ticker-item span.val { color: var(--accent-cyan); font-weight: 700; text-shadow: 0 0 8px rgba(0, 229, 255, 0.3); }
+
+        /* Media Equalizer Animation */
+        .eq-bars {
+            display: inline-flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 12px;
+            margin-right: 4px;
+        }
+        .eq-bar {
+            width: 2px;
+            background: var(--accent-cyan);
+            border-radius: 1px;
+            animation: eq-bounce 1.2s ease-in-out infinite;
+        }
+        .eq-bar:nth-child(2) { animation-delay: 0.2s; }
+        .eq-bar:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes eq-bounce { 0%, 100% { height: 3px; } 50% { height: 12px; } }
+
         .btn-ambient {
-            background: rgba(56, 189, 248, 0.15);
+            background: rgba(0, 229, 255, 0.12);
             border: 1px solid var(--accent-cyan);
             color: var(--accent-cyan);
             padding: 6px 14px;
-            border-radius: 6px;
+            border-radius: 8px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
+        .btn-ambient:hover { background: rgba(0, 229, 255, 0.25); box-shadow: 0 0 12px rgba(0, 229, 255, 0.3); }
         .btn-ambient.active {
             background: rgba(16, 185, 129, 0.2);
             border-color: var(--accent-green);
             color: var(--accent-green);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
         }
         .btn-sleep {
-            background: rgba(168, 85, 247, 0.15);
+            background: rgba(192, 132, 252, 0.15);
             border: 1px solid var(--accent-purple);
             color: var(--accent-purple);
             padding: 6px 14px;
-            border-radius: 6px;
+            border-radius: 8px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .btn-sleep:hover { background: rgba(192, 132, 252, 0.3); box-shadow: 0 0 14px rgba(192, 132, 252, 0.35); }
+        .btn-panic {
+            background: rgba(239, 68, 68, 0.18);
+            border: 1px solid var(--accent-red);
+            color: var(--accent-red);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.2s;
         }
-        .btn-sleep:hover { background: rgba(168, 85, 247, 0.3); }
+        .btn-panic:hover { background: rgba(239, 68, 68, 0.35); box-shadow: 0 0 16px rgba(239, 68, 68, 0.4); }
 
+        /* Main Grid Area */
         main {
             flex: 1;
             display: grid;
-            grid-template-columns: 260px 1fr;
+            grid-template-columns: 270px 1fr;
             overflow: hidden;
             position: relative;
+            z-index: 10;
         }
-        /* Sidebar */
+
+        /* Sidebar Navigation */
         aside.nav-sidebar {
-            background: rgba(15, 23, 42, 0.6);
+            background: rgba(10, 15, 29, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-right: 1px solid var(--border-panel);
-            padding: 16px;
+            padding: 20px 16px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            z-index: 5;
+            gap: 10px;
+            z-index: 15;
         }
         .nav-btn {
             background: transparent;
             border: 1px solid transparent;
             color: var(--text-dim);
-            padding: 12px 16px;
-            border-radius: 8px;
+            padding: 12px 18px;
+            border-radius: 10px;
             text-align: left;
-            font-size: 0.9rem;
+            font-size: 0.92rem;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.15s;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
-        .nav-btn .icon { font-size: 1.1rem; }
+        .nav-btn .icon { font-size: 1.15rem; transition: transform 0.2s ease; }
         .nav-btn:hover {
-            background: rgba(56, 189, 248, 0.08);
+            background: rgba(0, 229, 255, 0.08);
             color: var(--text-main);
+            transform: translateX(4px);
         }
+        .nav-btn:hover .icon { transform: scale(1.2); }
         .nav-btn.active {
-            background: rgba(56, 189, 248, 0.15);
+            background: linear-gradient(90deg, rgba(0, 229, 255, 0.18), rgba(56, 189, 248, 0.08));
             color: var(--accent-cyan);
-            border-color: rgba(56, 189, 248, 0.3);
+            border: 1px solid rgba(0, 229, 255, 0.35);
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
             font-weight: 600;
         }
 
-        /* Container for Panes */
+        /* Content Container */
         .content-area {
             flex: 1;
             height: 100%;
@@ -232,10 +303,22 @@ HTML_DASHBOARD = """
             height: 100%;
         }
 
-        /* Pane 1: Cognitive Stage */
+        /* 3D Glass Card Physics Tilt */
+        .tilt-card {
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            transition: transform 0.15s ease-out, box-shadow 0.2s ease, border-color 0.2s ease;
+            will-change: transform;
+        }
+        .tilt-card:hover {
+            border-color: var(--border-glow);
+            box-shadow: 0 16px 36px -8px rgba(0, 229, 255, 0.18), 0 0 14px rgba(56, 189, 248, 0.15);
+        }
+
+        /* PANE 1: Cognitive Stage */
         #pane-stage.active {
             display: grid;
-            grid-template-columns: 1fr 340px;
+            grid-template-columns: 1fr 370px;
             height: 100%;
             overflow: hidden;
         }
@@ -244,147 +327,176 @@ HTML_DASHBOARD = """
             flex-direction: column;
             height: 100%;
             overflow: hidden;
-            background: rgba(10, 14, 23, 0.4);
+            background: rgba(8, 12, 24, 0.4);
+            position: relative;
         }
         .chat-messages {
             flex: 1;
-            padding: 24px;
+            padding: 28px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 18px;
+            gap: 20px;
         }
         .message-bubble {
             max-width: 82%;
-            padding: 14px 18px;
-            border-radius: 12px;
-            line-height: 1.5;
-            font-size: 0.95rem;
-            animation: fadeIn 0.2s ease-in;
+            padding: 16px 22px;
+            border-radius: 14px;
+            line-height: 1.55;
+            font-size: 0.96rem;
+            animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
         .msg-user {
             align-self: flex-end;
-            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            background: linear-gradient(135deg, #1d4ed8, #2563eb);
             color: #fff;
-            border-bottom-right-radius: 2px;
+            border-bottom-right-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
         }
         .msg-cortex {
             align-self: flex-start;
-            background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(56, 189, 248, 0.2);
+            background: rgba(18, 28, 51, 0.85);
+            border: 1px solid var(--border-panel);
             color: var(--text-main);
-            border-bottom-left-radius: 2px;
+            border-bottom-left-radius: 3px;
         }
         .thought-card {
-            margin-top: 10px;
-            background: rgba(15, 23, 42, 0.85);
+            margin-top: 12px;
+            background: rgba(10, 16, 30, 0.9);
             border-left: 3px solid var(--accent-cyan);
-            border-radius: 4px;
-            padding: 8px 12px;
-            font-size: 0.82rem;
+            border-radius: 6px;
+            padding: 10px 14px;
+            font-size: 0.84rem;
             font-family: 'JetBrains Mono', monospace;
             color: var(--text-dim);
+            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.5);
         }
         .thought-card summary { cursor: pointer; color: var(--accent-cyan); font-weight: 600; outline: none; }
         .hold-card {
-            margin-top: 12px;
-            background: rgba(239, 68, 68, 0.15);
+            margin-top: 14px;
+            background: rgba(239, 68, 68, 0.18);
             border: 1px solid var(--accent-red);
-            border-radius: 8px;
-            padding: 14px;
+            border-radius: 10px;
+            padding: 16px;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.25);
         }
-        .hold-card h4 { color: var(--accent-red); margin-bottom: 6px; font-size: 0.9rem; }
-        .hold-actions { display: flex; gap: 10px; margin-top: 12px; }
+        .hold-card h4 { color: var(--accent-red); margin-bottom: 8px; font-size: 0.92rem; }
+        .hold-actions { display: flex; gap: 12px; margin-top: 14px; }
         .btn-approve {
             background: var(--accent-green);
             color: #fff;
             border: none;
-            padding: 6px 14px;
+            padding: 8px 16px;
             border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
         }
         .btn-reject {
             background: var(--accent-red);
             color: #fff;
             border: none;
-            padding: 6px 14px;
+            padding: 8px 16px;
             border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
+            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
         }
         .chat-input-bar {
-            padding: 16px 24px;
-            background: rgba(15, 23, 42, 0.9);
+            padding: 18px 28px;
+            background: rgba(10, 15, 29, 0.92);
+            backdrop-filter: blur(16px);
             border-top: 1px solid var(--border-panel);
             display: flex;
-            gap: 12px;
+            gap: 14px;
+            z-index: 5;
         }
         .chat-input {
             flex: 1;
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(18, 28, 51, 0.8);
+            border: 1px solid var(--border-panel);
             color: #fff;
-            padding: 12px 18px;
-            border-radius: 8px;
+            padding: 14px 20px;
+            border-radius: 10px;
             font-size: 0.95rem;
             outline: none;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .chat-input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 10px rgba(56, 189, 248, 0.2); }
+        .chat-input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 16px rgba(0, 229, 255, 0.25);
+            background: rgba(22, 34, 60, 0.9);
+        }
         .btn-send {
-            background: var(--accent-blue);
+            background: linear-gradient(135deg, #0284c7, #0ea5e9);
             color: #fff;
             border: none;
-            padding: 0 24px;
-            border-radius: 8px;
+            padding: 0 28px;
+            border-radius: 10px;
             font-weight: 600;
+            font-size: 0.95rem;
             cursor: pointer;
-            transition: background 0.15s;
+            transition: all 0.2s;
+            box-shadow: 0 4px 14px rgba(14, 165, 233, 0.35);
         }
-        .btn-send:hover { background: #1d4ed8; }
+        .btn-send:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
+        }
 
+        /* Cognitive Stage Sidebar / Inspector */
         aside.state-inspector {
-            background: rgba(15, 23, 42, 0.5);
+            background: rgba(10, 15, 29, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-left: 1px solid var(--border-panel);
-            padding: 20px;
+            padding: 22px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 18px;
+            z-index: 5;
         }
         .block-card {
-            background: rgba(30, 41, 59, 0.4);
-            border: 1px solid var(--border-subtle);
-            border-radius: 8px;
-            padding: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-panel);
+            border-radius: 10px;
+            padding: 14px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
         }
         .block-card h4 {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
             color: var(--accent-purple);
             text-transform: uppercase;
             margin-bottom: 6px;
-            display: flex;
-            justify-content: space-between;
+            letter-spacing: 0.5px;
         }
         .block-card p {
-            font-size: 0.82rem;
+            font-size: 0.84rem;
             color: var(--text-dim);
-            line-height: 1.4;
-            max-height: 120px;
+            line-height: 1.45;
+            max-height: 110px;
             overflow-y: auto;
         }
 
-        /* Generic Pane Styles */
+        /* Generic Scrollable Pane */
         .pane-scrollable {
             display: none;
             flex-direction: column;
             height: 100%;
             overflow-y: auto;
-            padding: 28px 36px;
-            gap: 24px;
+            padding: 30px 40px;
+            gap: 26px;
+            z-index: 5;
         }
         .pane-scrollable.active { display: flex; }
         .pane-header {
@@ -392,52 +504,59 @@ HTML_DASHBOARD = """
             justify-content: space-between;
             align-items: flex-start;
             border-bottom: 1px solid var(--border-panel);
-            padding-bottom: 16px;
+            padding-bottom: 18px;
         }
         .pane-title {
-            font-size: 1.4rem;
+            font-size: 1.45rem;
             font-weight: 700;
             color: var(--text-main);
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+            font-family: 'Orbitron', 'Inter', sans-serif;
+            letter-spacing: 0.5px;
         }
         .pane-desc {
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             color: var(--text-dim);
-            margin-top: 4px;
+            margin-top: 6px;
         }
         .btn-action {
-            background: rgba(56, 189, 248, 0.15);
+            background: rgba(0, 229, 255, 0.12);
             border: 1px solid var(--accent-cyan);
             color: var(--accent-cyan);
-            padding: 8px 16px;
-            border-radius: 6px;
+            padding: 8px 18px;
+            border-radius: 8px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.82rem;
+            font-size: 0.84rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
             display: inline-flex;
             align-items: center;
             gap: 8px;
         }
-        .btn-action:hover { background: rgba(56, 189, 248, 0.3); }
+        .btn-action:hover {
+            background: rgba(0, 229, 255, 0.25);
+            box-shadow: 0 0 16px rgba(0, 229, 255, 0.35);
+            transform: translateY(-1px);
+        }
 
-        /* Memory Pane Styles */
+        /* Working Memory Styles */
         .mem-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
+            gap: 24px;
         }
         .mem-card {
             background: var(--bg-card);
             border: 1px solid var(--border-panel);
-            border-radius: 10px;
-            padding: 18px;
+            border-radius: 12px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
+            backdrop-filter: blur(12px);
         }
         .mem-card-head {
             display: flex;
@@ -446,107 +565,148 @@ HTML_DASHBOARD = """
         }
         .mem-label {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.95rem;
+            font-size: 0.98rem;
             font-weight: 700;
             color: var(--accent-cyan);
         }
         .mem-char-badge {
             font-family: 'JetBrains Mono', monospace;
             font-size: 0.78rem;
-            padding: 2px 8px;
+            padding: 3px 10px;
             border-radius: 12px;
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid var(--border-subtle);
+            background: rgba(18, 28, 51, 0.85);
+            border: 1px solid var(--border-panel);
             color: var(--text-dim);
         }
         .mem-progress {
             width: 100%;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
             overflow: hidden;
         }
         .mem-progress-bar {
             height: 100%;
-            background: var(--accent-cyan);
+            background: linear-gradient(90deg, #00e5ff, #3b82f6);
             width: 0%;
-            transition: width 0.3s;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
         }
         .mem-textarea {
             width: 100%;
             height: 180px;
-            background: rgba(10, 14, 23, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-            padding: 12px;
+            background: rgba(8, 12, 24, 0.75);
+            border: 1px solid var(--border-panel);
+            border-radius: 8px;
+            padding: 14px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.86rem;
             color: var(--text-main);
             outline: none;
             resize: vertical;
-            line-height: 1.4;
+            line-height: 1.45;
         }
-        .mem-textarea:focus { border-color: var(--accent-cyan); }
+        .mem-textarea:focus { border-color: var(--accent-cyan); box-shadow: 0 0 12px rgba(0, 229, 255, 0.2); }
         .mem-card-foot {
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         .mem-status {
-            font-size: 0.78rem;
+            font-size: 0.8rem;
             color: var(--accent-green);
             display: none;
         }
 
-        /* Bi-Temporal Graph & Engrams Pane */
-        .graph-layout {
-            display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
-            gap: 24px;
-        }
+        /* 3D Bi-Temporal Graph Pane */
         .graph-card {
             background: var(--bg-card);
             border: 1px solid var(--border-panel);
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 22px;
             display: flex;
             flex-direction: column;
             gap: 16px;
+            backdrop-filter: blur(14px);
         }
-        .filter-tags {
-            display: flex;
-            gap: 8px;
+        #graph-3d-container {
+            position: relative;
+            width: 100%;
+            height: 420px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border-panel);
+            background: radial-gradient(circle at center, #0e172a 0%, #060911 100%);
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
         }
-        .filter-tag {
-            background: rgba(30, 41, 59, 0.8);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-dim);
-            padding: 4px 10px;
-            border-radius: 6px;
+        #graph-3d-viewport {
+            width: 100%;
+            height: 100%;
+        }
+        #graph-3d-hud {
+            position: absolute;
+            top: 14px;
+            left: 18px;
+            pointer-events: none;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 0.78rem;
+            color: var(--accent-cyan);
+            background: rgba(10, 15, 29, 0.75);
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-panel);
+        }
+        #graph-node-details {
+            position: absolute;
+            bottom: 14px;
+            right: 18px;
+            background: rgba(10, 15, 29, 0.88);
+            border: 1px solid var(--border-panel);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.78rem;
+            color: #fff;
+            display: none;
+            backdrop-filter: blur(10px);
+            max-width: 300px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        .filter-tags { display: flex; gap: 8px; }
+        .filter-tag {
+            background: rgba(18, 28, 51, 0.85);
+            border: 1px solid var(--border-panel);
+            color: var(--text-dim);
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
             cursor: pointer;
             font-family: 'JetBrains Mono', monospace;
+            transition: all 0.2s;
         }
+        .filter-tag:hover { color: var(--text-main); }
         .filter-tag.active {
-            background: rgba(56, 189, 248, 0.2);
+            background: rgba(0, 229, 255, 0.2);
             border-color: var(--accent-cyan);
             color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
         }
         .data-table-wrap {
             max-height: 380px;
             overflow-y: auto;
-            border: 1px solid var(--border-subtle);
-            border-radius: 6px;
+            border: 1px solid var(--border-panel);
+            border-radius: 8px;
+            background: rgba(8, 12, 24, 0.6);
         }
         table.cortex-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.82rem;
+            font-size: 0.84rem;
             font-family: 'JetBrains Mono', monospace;
         }
         table.cortex-table th {
-            background: rgba(15, 23, 42, 0.9);
-            padding: 10px 12px;
+            background: rgba(10, 15, 29, 0.95);
+            padding: 12px 14px;
             text-align: left;
             border-bottom: 1px solid var(--border-panel);
             color: var(--text-dim);
@@ -555,94 +715,97 @@ HTML_DASHBOARD = """
             top: 0;
         }
         table.cortex-table td {
-            padding: 8px 12px;
+            padding: 10px 14px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             color: var(--text-main);
         }
-        table.cortex-table tr:hover td { background: rgba(56, 189, 248, 0.05); }
+        table.cortex-table tr:hover td { background: rgba(0, 229, 255, 0.06); }
         .layer-badge {
-            font-size: 0.72rem;
-            padding: 2px 6px;
+            font-size: 0.74rem;
+            padding: 3px 8px;
             border-radius: 4px;
             font-weight: 600;
             text-transform: uppercase;
         }
-        .layer-semantic { background: rgba(56, 189, 248, 0.2); color: var(--accent-cyan); }
-        .layer-causal { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
-        .layer-temporal { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); }
-        .layer-entity { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .layer-semantic { background: rgba(0, 229, 255, 0.18); color: var(--accent-cyan); }
+        .layer-causal { background: rgba(245, 158, 11, 0.18); color: var(--accent-yellow); }
+        .layer-temporal { background: rgba(192, 132, 252, 0.18); color: var(--accent-purple); }
+        .layer-entity { background: rgba(16, 185, 129, 0.18); color: var(--accent-green); }
 
         .form-row {
             display: grid;
             grid-template-columns: repeat(4, 1fr) auto;
-            gap: 10px;
+            gap: 12px;
             align-items: center;
         }
         .form-input {
-            background: rgba(10, 14, 23, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(8, 12, 24, 0.8);
+            border: 1px solid var(--border-panel);
             color: #fff;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 0.82rem;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.84rem;
             font-family: 'JetBrains Mono', monospace;
             outline: none;
         }
-        .form-input:focus { border-color: var(--accent-cyan); }
+        .form-input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.2); }
 
         /* Skills Pane */
         .curriculum-banner {
-            background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(168, 85, 247, 0.15));
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            border-radius: 8px;
-            padding: 14px 20px;
+            background: linear-gradient(90deg, rgba(56, 189, 248, 0.15), rgba(192, 132, 252, 0.15));
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 10px;
+            padding: 16px 22px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            backdrop-filter: blur(12px);
         }
         .curriculum-title {
-            font-size: 0.85rem;
-            font-weight: 600;
+            font-size: 0.88rem;
+            font-weight: 700;
             color: var(--accent-cyan);
             font-family: 'JetBrains Mono', monospace;
         }
         .curriculum-task {
-            font-size: 0.9rem;
+            font-size: 0.94rem;
             color: var(--text-main);
             margin-top: 4px;
         }
         .synth-bar {
             display: flex;
-            gap: 12px;
+            gap: 14px;
             background: var(--bg-card);
             border: 1px solid var(--border-panel);
-            padding: 14px;
-            border-radius: 8px;
+            padding: 16px;
+            border-radius: 10px;
+            backdrop-filter: blur(12px);
         }
         .synth-input {
             flex: 1;
-            background: rgba(10, 14, 23, 0.8);
-            border: 1px solid var(--border-subtle);
+            background: rgba(8, 12, 24, 0.8);
+            border: 1px solid var(--border-panel);
             color: #fff;
-            padding: 10px 16px;
-            border-radius: 6px;
-            font-size: 0.9rem;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 0.92rem;
             outline: none;
         }
-        .synth-input:focus { border-color: var(--accent-cyan); }
+        .synth-input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 12px rgba(0, 229, 255, 0.25); }
         .skills-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
+            gap: 24px;
         }
         .skill-card {
             background: var(--bg-card);
             border: 1px solid var(--border-panel);
-            border-radius: 10px;
-            padding: 18px;
+            border-radius: 12px;
+            padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
+            backdrop-filter: blur(12px);
         }
         .skill-head {
             display: flex;
@@ -651,59 +814,60 @@ HTML_DASHBOARD = """
         }
         .skill-name {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 1rem;
+            font-size: 1.05rem;
             font-weight: 700;
             color: var(--accent-cyan);
         }
         .skill-score {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
             font-weight: 700;
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 6px;
             background: rgba(16, 185, 129, 0.2);
             color: var(--accent-green);
-            border: 1px solid rgba(16, 185, 129, 0.3);
+            border: 1px solid rgba(16, 185, 129, 0.35);
         }
         .skill-doc {
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             color: var(--text-dim);
-            line-height: 1.4;
+            line-height: 1.45;
         }
         .skill-accordions {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
         }
         .skill-details {
-            background: rgba(10, 14, 23, 0.6);
-            border: 1px solid var(--border-subtle);
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 0.8rem;
+            background: rgba(8, 12, 24, 0.65);
+            border: 1px solid var(--border-panel);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.82rem;
             font-family: 'JetBrains Mono', monospace;
         }
         .skill-details summary { cursor: pointer; color: var(--accent-purple); font-weight: 600; outline: none; }
         .skill-code-box {
-            margin-top: 8px;
-            max-height: 200px;
+            margin-top: 10px;
+            max-height: 220px;
             overflow-y: auto;
             white-space: pre;
             color: #38bdf8;
-            font-size: 0.78rem;
+            font-size: 0.8rem;
         }
         .skill-output-box {
             display: none;
             background: #000;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            border-radius: 6px;
-            padding: 10px 14px;
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            border-radius: 8px;
+            padding: 12px 16px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
             color: var(--accent-green);
-            max-height: 180px;
+            max-height: 200px;
             overflow-y: auto;
             white-space: pre-wrap;
+            box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.8);
         }
 
         /* Governance Pane */
@@ -715,64 +879,68 @@ HTML_DASHBOARD = """
         .gov-card {
             background: var(--bg-card);
             border: 1px solid var(--border-panel);
-            border-radius: 10px;
-            padding: 20px;
+            border-radius: 12px;
+            padding: 22px;
             display: flex;
             flex-direction: column;
             gap: 16px;
+            backdrop-filter: blur(12px);
         }
         .gov-card h3 {
-            font-size: 1rem;
+            font-size: 1.05rem;
             font-weight: 600;
             color: var(--accent-cyan);
             font-family: 'JetBrains Mono', monospace;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
         }
         .code-display {
-            background: rgba(10, 14, 23, 0.8);
-            border: 1px solid var(--border-subtle);
-            border-radius: 6px;
-            padding: 14px;
+            background: rgba(8, 12, 24, 0.85);
+            border: 1px solid var(--border-panel);
+            border-radius: 8px;
+            padding: 16px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.8rem;
+            font-size: 0.82rem;
             color: var(--text-dim);
-            max-height: 260px;
+            max-height: 280px;
             overflow-y: auto;
             white-space: pre;
         }
         .pdp-tester {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 14px;
         }
         .pdp-result {
             display: none;
-            padding: 12px;
-            border-radius: 6px;
+            padding: 14px;
+            border-radius: 8px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.86rem;
         }
-        .verdict-allow { background: rgba(16, 185, 129, 0.15); border: 1px solid var(--accent-green); color: var(--accent-green); }
-        .verdict-escalate { background: rgba(245, 158, 11, 0.15); border: 1px solid var(--accent-yellow); color: var(--accent-yellow); }
-        .verdict-deny { background: rgba(239, 68, 68, 0.15); border: 1px solid var(--accent-red); color: var(--accent-red); }
+        .verdict-allow { background: rgba(16, 185, 129, 0.18); border: 1px solid var(--accent-green); color: var(--accent-green); }
+        .verdict-escalate { background: rgba(245, 158, 11, 0.18); border: 1px solid var(--accent-yellow); color: var(--accent-yellow); }
+        .verdict-deny { background: rgba(239, 68, 68, 0.18); border: 1px solid var(--accent-red); color: var(--accent-red); }
 
         .btn-restore {
             background: rgba(239, 68, 68, 0.15);
             border: 1px solid var(--accent-red);
             color: var(--accent-red);
-            padding: 3px 8px;
-            border-radius: 4px;
+            padding: 4px 10px;
+            border-radius: 6px;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.75rem;
+            font-size: 0.76rem;
             cursor: pointer;
             transition: all 0.2s;
         }
-        .btn-restore:hover { background: rgba(239, 68, 68, 0.3); }
+        .btn-restore:hover { background: rgba(239, 68, 68, 0.35); }
     </style>
 </head>
 <body>
+    <!-- Persistent Ambient 3D Three.js Canvas -->
+    <canvas id="webgl-bg-canvas"></canvas>
+
     <header>
         <div class="brand">
             <div class="pulse-dot"></div>
@@ -784,7 +952,11 @@ HTML_DASHBOARD = """
             <div class="ticker-item">TEMP <span class="val" id="temp-val">0.40</span></div>
             <div class="ticker-item">UQ <span class="val" id="uq-val" style="color:var(--accent-green)">PASS</span></div>
             <div class="ticker-item" id="ticker-media" style="cursor:pointer;" onclick="pollLiveMedia()" title="Click to refresh audio">
-                <span style="color:var(--accent-cyan);">🎵</span>
+                <div class="eq-bars">
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                    <span class="eq-bar"></span>
+                </div>
                 <span class="val" id="media-ticker-text" style="max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Detecting media...</span>
                 <button onclick="controlMedia('previous', event)" style="background:transparent; border:none; color:var(--text-dim); cursor:pointer; font-size:0.75rem;" title="Previous track">⏮</button>
                 <button onclick="controlMedia('toggle', event)" style="background:transparent; border:none; color:var(--accent-cyan); cursor:pointer; font-size:0.85rem;" title="Play/Pause">⏯</button>
@@ -792,9 +964,10 @@ HTML_DASHBOARD = """
             </div>
             <button class="btn-ambient" id="btn-ambient" onclick="toggleAmbient()">AMBIENT: OFF</button>
             <button class="btn-sleep" onclick="triggerSleep()">DIGITAL SLEEP</button>
-            <button class="btn-panic" id="btn-panic" onclick="togglePanicKillswitch()" style="background:rgba(239,68,68,0.2); border:1px solid var(--accent-red); color:var(--accent-red); padding:6px 14px; border-radius:6px; font-family:'JetBrains Mono', monospace; font-size:0.8rem; font-weight:700; cursor:pointer; transition:all 0.2s;">🚨 PANIC STOP</button>
+            <button class="btn-panic" id="btn-panic" onclick="togglePanicKillswitch()">🚨 PANIC STOP</button>
         </div>
     </header>
+
     <main>
         <!-- Sidebar Navigation -->
         <aside class="nav-sidebar">
@@ -832,16 +1005,22 @@ HTML_DASHBOARD = """
                     </div>
                 </section>
                 <aside class="state-inspector">
+                    <!-- 3D Global Workspace Satellite Core Visualizer -->
+                    <div id="stage-3d-box" style="height: 150px; position:relative; border-radius:10px; overflow:hidden; background:rgba(6,9,17,0.7); border:1px solid var(--border-panel); box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
+                        <canvas id="stage-3d-canvas" style="width:100%; height:100%;"></canvas>
+                        <div style="position:absolute; bottom:6px; left:10px; font-size:0.68rem; color:var(--accent-cyan); font-family:'JetBrains Mono',monospace;">GWA Orbit: 3 Perspectives (Analytic, Pragmatic, Cautious)</div>
+                    </div>
+
                     <h3 style="font-size:0.9rem; letter-spacing:0.5px; text-transform:uppercase; color:var(--accent-cyan); font-family:'JetBrains Mono', monospace;">Working Memory</h3>
-                    <div class="block-card">
+                    <div class="block-card tilt-card">
                         <h4>persona_self</h4>
                         <p id="block-persona">Autonomous cognitive OS embodied on this laptop.</p>
                     </div>
-                    <div class="block-card">
+                    <div class="block-card tilt-card">
                         <h4>workspace_state</h4>
                         <p id="block-workspace">Active repository root monitored.</p>
                     </div>
-                    <div class="block-card">
+                    <div class="block-card tilt-card">
                         <h4>scratchpad_stm</h4>
                         <p id="block-scratchpad">Awaiting prompt.</p>
                     </div>
@@ -857,9 +1036,16 @@ HTML_DASHBOARD = """
                     </div>
                     <button class="btn-action" onclick="loadMemoryPane()"><span>🔄</span> Refresh Blocks</button>
                 </div>
+
+                <!-- 3D Holographic Memory Prisms Header Box -->
+                <div id="memory-3d-box" style="height: 130px; border-radius: 10px; overflow: hidden; background: rgba(6, 9, 17, 0.7); border: 1px solid var(--border-panel); position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
+                    <canvas id="memory-3d-canvas" style="width: 100%; height: 100%;"></canvas>
+                    <div style="position: absolute; top: 8px; left: 14px; font-size: 0.76rem; color: var(--accent-cyan); font-family: 'JetBrains Mono', monospace;">3D Holographic Memory Prisms (Character Capacity & Allocation)</div>
+                </div>
+
                 <div class="mem-grid">
                     <!-- persona_self -->
-                    <div class="mem-card">
+                    <div class="mem-card tilt-card">
                         <div class="mem-card-head">
                             <span class="mem-label">persona_self</span>
                             <span class="mem-char-badge" id="badge-persona_self">0 / 2000 chars</span>
@@ -873,7 +1059,7 @@ HTML_DASHBOARD = """
                     </div>
 
                     <!-- human_profile -->
-                    <div class="mem-card">
+                    <div class="mem-card tilt-card">
                         <div class="mem-card-head">
                             <span class="mem-label">human_profile</span>
                             <span class="mem-char-badge" id="badge-human_profile">0 / 1500 chars</span>
@@ -887,7 +1073,7 @@ HTML_DASHBOARD = """
                     </div>
 
                     <!-- workspace_state -->
-                    <div class="mem-card">
+                    <div class="mem-card tilt-card">
                         <div class="mem-card-head">
                             <span class="mem-label">workspace_state</span>
                             <span class="mem-char-badge" id="badge-workspace_state">0 / 2000 chars</span>
@@ -901,7 +1087,7 @@ HTML_DASHBOARD = """
                     </div>
 
                     <!-- scratchpad_stm -->
-                    <div class="mem-card">
+                    <div class="mem-card tilt-card">
                         <div class="mem-card-head">
                             <span class="mem-label">scratchpad_stm</span>
                             <span class="mem-char-badge" id="badge-scratchpad_stm">0 / 1000 chars</span>
@@ -916,18 +1102,18 @@ HTML_DASHBOARD = """
                 </div>
             </div>
 
-            <!-- PANE 3: BI-TEMPORAL KNOWLEDGE GRAPH & ENGRAMS -->
+            <!-- PANE 3: BI-TEMPORAL KNOWLEDGE GRAPH & ENGRAMS (Full 3D WebGL Multi-Graph) -->
             <div id="pane-graph" class="pane-scrollable">
                 <div class="pane-header">
                     <div>
                         <div class="pane-title"><span>🕸️</span> Bi-Temporal Knowledge Multi-Graph (MAGMA)</div>
-                        <div class="pane-desc">4-layer graph substrate (Semantic, Temporal, Causal, Entity) with valid_from/valid_to time horizons and atomic sleep engrams.</div>
+                        <div class="pane-desc">4-layer graph substrate (Semantic, Temporal, Causal, Entity) with 3D force physics, valid_from/valid_to time horizons, and atomic sleep engrams.</div>
                     </div>
-                    <button class="btn-action" onclick="loadGraphPane()"><span>🔄</span> Reload Graph</button>
+                    <button class="btn-action" onclick="loadGraphPane()"><span>🔄</span> Reload 3D Graph</button>
                 </div>
 
                 <!-- Assert New Edge Form -->
-                <div class="graph-card">
+                <div class="graph-card tilt-card">
                     <h3 style="font-size:0.95rem; font-family:'JetBrains Mono', monospace; color:var(--accent-cyan);">➕ Assert New Fact / Relation</h3>
                     <div class="form-row">
                         <input type="text" class="form-input" id="assert-source" placeholder="Source Node (e.g. soham)">
@@ -943,16 +1129,25 @@ HTML_DASHBOARD = """
                     </div>
                 </div>
 
-                <!-- Interactive Visual MAGMA Multi-Graph Canvas -->
+                <!-- Interactive 3D WebGL MAGMA Multi-Graph Canvas -->
                 <div class="graph-card">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <h3 style="font-size:0.95rem; font-family:'JetBrains Mono', monospace; color:var(--accent-cyan);">🌐 Visual MAGMA Multi-Graph Canvas</h3>
-                        <span style="font-size:0.75rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">Dynamic Force Layout (Semantic, Causal, Temporal, Entity)</span>
+                        <h3 style="font-size:0.95rem; font-family:'JetBrains Mono', monospace; color:var(--accent-cyan);">🌐 Interactive 3D WebGL Multi-Graph Universe</h3>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn-ambient" onclick="reset3DGraphCamera()" style="font-size:0.75rem; padding:4px 10px;">Reset View</button>
+                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">3D Orbit Controls + Photon Laser Beams</span>
+                        </div>
                     </div>
-                    <canvas id="graph-canvas" width="800" height="220" style="width:100%; height:220px; background:rgba(10,14,23,0.9); border:1px solid var(--border-subtle); border-radius:6px;"></canvas>
+                    <div id="graph-3d-container">
+                        <div id="graph-3d-viewport"></div>
+                        <div id="graph-3d-hud">🖱️ Drag: Rotate 3D | Wheel: Zoom | Right-Click: Pan | Hover/Click: Inspect</div>
+                        <div id="graph-node-details"></div>
+                    </div>
+                    <!-- Hidden legacy 2D canvas preserved for tests and fallback -->
+                    <canvas id="graph-canvas" width="800" height="220" style="display:none;"></canvas>
                 </div>
 
-                <div class="graph-layout">
+                <div class="graph-layout" style="display:grid; grid-template-columns: 1.2fr 0.8fr; gap:24px;">
                     <!-- Graph Relations Table -->
                     <div class="graph-card">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -1011,7 +1206,7 @@ HTML_DASHBOARD = """
                 </div>
 
                 <!-- Curriculum Challenge Banner -->
-                <div class="curriculum-banner">
+                <div class="curriculum-banner tilt-card">
                     <div>
                         <div class="curriculum-title">🎯 ACTIVE CURRICULUM CHALLENGE (<span id="curr-level">BEGINNER</span>)</div>
                         <div class="curriculum-task" id="curr-task">Inspect active Git branch and verify working tree status.</div>
@@ -1020,7 +1215,7 @@ HTML_DASHBOARD = """
                 </div>
 
                 <!-- Synthesize Form -->
-                <div class="synth-bar">
+                <div class="synth-bar tilt-card">
                     <input type="text" class="synth-input" id="synth-desc" placeholder="Describe a novel skill, automation, or task to synthesize and sandbox (e.g. Inspect GPU VRAM utilization)...">
                     <button class="btn-action" onclick="synthesizeCustomSkill()">⚡ Synthesize & Crystallize</button>
                 </div>
@@ -1046,7 +1241,7 @@ HTML_DASHBOARD = """
 
                 <div class="gov-grid">
                     <!-- Sub-0.1ms Interactive PDP Tester -->
-                    <div class="gov-card">
+                    <div class="gov-card tilt-card">
                         <h3><span>⚡</span> Policy Decision Point (PDP) Live Tester</h3>
                         <div class="pdp-tester">
                             <label style="font-size:0.8rem; color:var(--text-dim); font-family:'JetBrains Mono', monospace;">Action to Test:</label>
@@ -1066,7 +1261,7 @@ HTML_DASHBOARD = """
                     </div>
 
                     <!-- Cedar Policy Rules -->
-                    <div class="gov-card">
+                    <div class="gov-card tilt-card">
                         <h3><span>📜</span> Cedar Policy-as-Code (<span id="gov-cedar-path">config/policies.cedar</span>)</h3>
                         <div class="code-display" id="gov-policy-code">Loading Cedar policies...</div>
                     </div>
@@ -1075,7 +1270,7 @@ HTML_DASHBOARD = """
                 <!-- Git Shadow Checkpoints & Working Tree Diff -->
                 <div class="gov-grid">
                     <!-- Checkpoints Table -->
-                    <div class="gov-card">
+                    <div class="gov-card tilt-card">
                         <h3><span>📌</span> Pinned Shadow Git Checkpoints (refs/checkpoints/)</h3>
                         <div class="data-table-wrap">
                             <table class="cortex-table">
@@ -1094,7 +1289,7 @@ HTML_DASHBOARD = """
                     </div>
 
                     <!-- Working Tree Diff -->
-                    <div class="gov-card">
+                    <div class="gov-card tilt-card">
                         <h3><span>🔍</span> Working Tree Diff & Integrity Monitor</h3>
                         <div class="code-display" id="gov-working-diff" style="color:#10b981;">Checking working tree...</div>
                     </div>
@@ -1105,6 +1300,7 @@ HTML_DASHBOARD = """
     </main>
 
     <script>
+        // ==================== WEBSOCKET & CORE ROUTING ====================
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
         let socket = new WebSocket(wsUrl);
@@ -1117,11 +1313,13 @@ HTML_DASHBOARD = """
             } else if (data.type === 'cortex_response') {
                 renderCortexResponse(data);
                 updateTelemetry(data.state);
+                trigger3DCognitivePulse(data.state ? data.state.entropy : 1.0);
             } else if (data.type === 'hold_card') {
                 renderHoldCard(data);
             } else if (data.type === 'ambient_tick') {
                 renderAmbientNotice(data);
                 updateTelemetry(data.state);
+                trigger3DCognitivePulse(data.state ? data.state.entropy : 1.0);
             }
         };
 
@@ -1134,6 +1332,9 @@ HTML_DASHBOARD = """
                 if (st.blocks.persona_self) document.getElementById('block-persona').innerText = st.blocks.persona_self.value.substring(0, 150) + '...';
                 if (st.blocks.workspace_state) document.getElementById('block-workspace').innerText = st.blocks.workspace_state.value.substring(0, 150) + '...';
                 if (st.blocks.scratchpad_stm) document.getElementById('block-scratchpad').innerText = st.blocks.scratchpad_stm.value.substring(0, 150) + '...';
+            }
+            if (window.updateMemoryPrismsFromState) {
+                window.updateMemoryPrismsFromState(st.blocks);
             }
         }
 
@@ -1148,9 +1349,522 @@ HTML_DASHBOARD = """
             });
 
             if (tabName === 'memory') loadMemoryPane();
-            else if (tabName === 'graph') loadGraphPane();
+            else if (tabName === 'graph') {
+                loadGraphPane();
+                setTimeout(onGraphResize, 100);
+            }
             else if (tabName === 'skills') loadSkillsPane();
             else if (tabName === 'governance') loadGovernancePane();
+        }
+
+        // ==================== 1. THREE.JS PERSISTENT BACKGROUND ====================
+        let bgScene, bgCamera, bgRenderer, bgParticles, bgCoreMesh, bgRingMesh, bgGrid;
+        let mouseX = 0, mouseY = 0;
+        let targetRotX = 0, targetRotY = 0;
+
+        function initBackground3D() {
+            const canvas = document.getElementById('webgl-bg-canvas');
+            bgScene = new THREE.Scene();
+            bgScene.fog = new THREE.FogExp2(0x060911, 0.002);
+
+            bgCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 2000);
+            bgCamera.position.z = 450;
+            bgCamera.position.y = 80;
+
+            bgRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
+            bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            // Perspective Floor Grid
+            bgGrid = new THREE.GridHelper(1600, 40, 0x00e5ff, 0x1e293b);
+            bgGrid.position.y = -180;
+            bgGrid.material.opacity = 0.25;
+            bgGrid.material.transparent = true;
+            bgScene.add(bgGrid);
+
+            // 600 Synapse Particles
+            const particleCount = 600;
+            const geom = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 1400;
+                positions[i + 1] = (Math.random() - 0.5) * 800;
+                positions[i + 2] = (Math.random() - 0.5) * 900;
+            }
+            geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const pMat = new THREE.PointsMaterial({
+                color: 0x00e5ff,
+                size: 3.2,
+                transparent: true,
+                opacity: 0.65,
+                blending: THREE.AdditiveBlending
+            });
+            bgParticles = new THREE.Points(geom, pMat);
+            bgScene.add(bgParticles);
+
+            // Floating Consciousness Core (Upper Right Perspective)
+            const coreGroup = new THREE.Group();
+            coreGroup.position.set(280, 100, -100);
+
+            // Wireframe Icosahedron
+            const icoGeom = new THREE.IcosahedronGeometry(70, 1);
+            const icoMat = new THREE.MeshBasicMaterial({
+                color: 0x38bdf8,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.35
+            });
+            bgCoreMesh = new THREE.Mesh(icoGeom, icoMat);
+            coreGroup.add(bgCoreMesh);
+
+            // Inner Glowing Sphere
+            const innerGeom = new THREE.SphereGeometry(38, 24, 24);
+            const innerMat = new THREE.MeshBasicMaterial({
+                color: 0x00e5ff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.55
+            });
+            const innerCore = new THREE.Mesh(innerGeom, innerMat);
+            coreGroup.add(innerCore);
+
+            // Orbiting Accretion Synapse Ring
+            const ringGeom = new THREE.RingGeometry(85, 95, 32);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0xc084fc,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.35,
+                wireframe: true
+            });
+            bgRingMesh = new THREE.Mesh(ringGeom, ringMat);
+            bgRingMesh.rotation.x = Math.PI / 2.5;
+            coreGroup.add(bgRingMesh);
+
+            bgScene.add(coreGroup);
+
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousemove', onMouseMove);
+
+            animateBackground();
+        }
+
+        function onMouseMove(event) {
+            mouseX = (event.clientX - window.innerWidth / 2) * 0.08;
+            mouseY = (event.clientY - window.innerHeight / 2) * 0.08;
+        }
+
+        function onWindowResize() {
+            if (bgCamera && bgRenderer) {
+                bgCamera.aspect = window.innerWidth / window.innerHeight;
+                bgCamera.updateProjectionMatrix();
+                bgRenderer.setSize(window.innerWidth, window.innerHeight);
+            }
+        }
+
+        function trigger3DCognitivePulse(entropy) {
+            if (!bgCoreMesh) return;
+            const baseScale = 1.0;
+            const targetScale = 1.35;
+            new TWEEN.Tween(bgCoreMesh.scale)
+                .to({ x: targetScale, y: targetScale, z: targetScale }, 150)
+                .yoyo(true)
+                .repeat(1)
+                .easing(TWEEN.Easing.Quadratic.Out)
+                .start();
+
+            // Color pulse on high entropy
+            if (entropy > 1.2 && bgCoreMesh.material) {
+                bgCoreMesh.material.color.setHex(0xc084fc);
+                setTimeout(() => { if (bgCoreMesh) bgCoreMesh.material.color.setHex(0x38bdf8); }, 800);
+            }
+        }
+
+        function animateBackground(time) {
+            requestAnimationFrame(animateBackground);
+            TWEEN.update();
+
+            if (bgParticles) {
+                bgParticles.rotation.y += 0.0006;
+                bgParticles.rotation.x += 0.0003;
+            }
+            if (bgCoreMesh) {
+                bgCoreMesh.rotation.x += 0.008;
+                bgCoreMesh.rotation.y += 0.012;
+            }
+            if (bgRingMesh) {
+                bgRingMesh.rotation.z += 0.015;
+            }
+
+            // Smooth Parallax
+            targetRotX += (mouseX - targetRotX) * 0.04;
+            targetRotY += (mouseY - targetRotY) * 0.04;
+            bgCamera.position.x = targetRotX * 0.5;
+            bgCamera.position.y = 80 - targetRotY * 0.3;
+            bgCamera.lookAt(0, 0, 0);
+
+            bgRenderer.render(bgScene, bgCamera);
+        }
+
+        // ==================== 2. THREE.JS COGNITIVE STAGE SATELLITES ====================
+        let stageScene, stageCamera, stageRenderer;
+        let satGroup, satAnalytic, satPragmatic, satCautious;
+
+        function initStage3D() {
+            const canvas = document.getElementById('stage-3d-canvas');
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+            stageScene = new THREE.Scene();
+
+            stageCamera = new THREE.PerspectiveCamera(50, (rect.width || 340) / (rect.height || 150), 0.1, 1000);
+            stageCamera.position.set(0, 20, 110);
+            stageCamera.lookAt(0, 0, 0);
+
+            stageRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            stageRenderer.setSize(rect.width || 340, rect.height || 150);
+
+            // Central Core
+            const coreGeom = new THREE.SphereGeometry(12, 20, 20);
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, wireframe: true });
+            const core = new THREE.Mesh(coreGeom, coreMat);
+            stageScene.add(core);
+
+            satGroup = new THREE.Group();
+            stageScene.add(satGroup);
+
+            // 3 Satellites: Analytic (Blue), Pragmatic (Green), Cautious (Amber)
+            const sGeom = new THREE.SphereGeometry(5, 16, 16);
+            satAnalytic = new THREE.Mesh(sGeom, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+            satPragmatic = new THREE.Mesh(sGeom, new THREE.MeshBasicMaterial({ color: 0x10b981 }));
+            satCautious = new THREE.Mesh(sGeom, new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+
+            satGroup.add(satAnalytic);
+            satGroup.add(satPragmatic);
+            satGroup.add(satCautious);
+
+            animateStage3D();
+        }
+
+        let satAngle = 0;
+        function animateStage3D() {
+            requestAnimationFrame(animateStage3D);
+            satAngle += 0.025;
+            const radius = 42;
+
+            if (satAnalytic) satAnalytic.position.set(radius * Math.cos(satAngle), 8 * Math.sin(satAngle * 2), radius * Math.sin(satAngle));
+            if (satPragmatic) satPragmatic.position.set(radius * Math.cos(satAngle + 2.09), 8 * Math.sin((satAngle + 2.09) * 2), radius * Math.sin(satAngle + 2.09));
+            if (satCautious) satCautious.position.set(radius * Math.cos(satAngle + 4.18), 8 * Math.sin((satAngle + 4.18) * 2), radius * Math.sin(satAngle + 4.18));
+
+            if (satGroup) satGroup.rotation.y += 0.005;
+            if (stageRenderer && stageScene && stageCamera) {
+                stageRenderer.render(stageScene, stageCamera);
+            }
+        }
+
+        // ==================== 3. THREE.JS 3D MULTI-GRAPH UNIVERSE ====================
+        let graphScene, graphCamera, graphRenderer, graphControls;
+        let graphNodesGroup, graphEdgesGroup;
+        let graphRaycaster, graphMouse;
+        let graphNodeMeshes = [];
+        let currentGraphEdges = [];
+
+        function initGraph3D() {
+            const container = document.getElementById('graph-3d-viewport');
+            if (!container) return;
+
+            graphScene = new THREE.Scene();
+            graphCamera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 1, 3000);
+            graphCamera.position.set(0, 120, 360);
+
+            graphRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            graphRenderer.setSize(container.clientWidth, container.clientHeight);
+            graphRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(graphRenderer.domElement);
+
+            // OrbitControls
+            graphControls = new THREE.OrbitControls(graphCamera, graphRenderer.domElement);
+            graphControls.enableDamping = true;
+            graphControls.dampingFactor = 0.06;
+            graphControls.autoRotate = true;
+            graphControls.autoRotateSpeed = 0.6;
+            graphControls.maxDistance = 800;
+            graphControls.minDistance = 60;
+
+            // Ambient lights
+            const ambLight = new THREE.AmbientLight(0xffffff, 0.9);
+            graphScene.add(ambLight);
+
+            graphNodesGroup = new THREE.Group();
+            graphEdgesGroup = new THREE.Group();
+            graphScene.add(graphNodesGroup);
+            graphScene.add(graphEdgesGroup);
+
+            // Raycaster
+            graphRaycaster = new THREE.Raycaster();
+            graphMouse = new THREE.Vector2();
+
+            graphRenderer.domElement.addEventListener('mousemove', onGraphMouseMove);
+            graphRenderer.domElement.addEventListener('click', onGraphClick);
+            window.addEventListener('resize', onGraphResize);
+
+            animateGraph3D();
+        }
+
+        function onGraphResize() {
+            const container = document.getElementById('graph-3d-viewport');
+            if (!container || !graphCamera || !graphRenderer) return;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            if (w === 0 || h === 0) return;
+            graphCamera.aspect = w / h;
+            graphCamera.updateProjectionMatrix();
+            graphRenderer.setSize(w, h);
+        }
+
+        function reset3DGraphCamera() {
+            if (!graphCamera || !graphControls) return;
+            new TWEEN.Tween(graphCamera.position)
+                .to({ x: 0, y: 120, z: 360 }, 800)
+                .easing(TWEEN.Easing.Cubic.Out)
+                .start();
+            graphControls.target.set(0, 0, 0);
+        }
+
+        function onGraphMouseMove(event) {
+            const rect = graphRenderer.domElement.getBoundingClientRect();
+            graphMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            graphMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            graphRaycaster.setFromCamera(graphMouse, graphCamera);
+            const intersects = graphRaycaster.intersectObjects(graphNodeMeshes);
+            const hud = document.getElementById('graph-node-details');
+
+            if (intersects.length > 0) {
+                const nodeData = intersects[0].object.userData;
+                hud.style.display = 'block';
+                hud.innerHTML = `
+                    <div style="font-weight:700; color:var(--accent-cyan); font-size:0.85rem; margin-bottom:2px;">Node: ${escapeHtml(nodeData.id)}</div>
+                    <div><b>Layer:</b> <span class="layer-badge layer-${nodeData.layer.toLowerCase()}">${nodeData.layer}</span></div>
+                    <div style="margin-top:4px; font-size:0.74rem; color:var(--text-dim);">Click node to focus & filter relations.</div>
+                `;
+            } else {
+                hud.style.display = 'none';
+            }
+        }
+
+        function onGraphClick(event) {
+            const rect = graphRenderer.domElement.getBoundingClientRect();
+            graphMouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            graphMouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            graphRaycaster.setFromCamera(graphMouse, graphCamera);
+            const intersects = graphRaycaster.intersectObjects(graphNodeMeshes);
+            if (intersects.length > 0) {
+                const targetMesh = intersects[0].object;
+                const pos = targetMesh.position;
+                new TWEEN.Tween(graphCamera.position)
+                    .to({ x: pos.x + 30, y: pos.y + 25, z: pos.z + 70 }, 700)
+                    .easing(TWEEN.Easing.Cubic.Out)
+                    .start();
+                graphControls.target.copy(pos);
+            }
+        }
+
+        function makeTextSprite(message, colorHex) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(10, 15, 29, 0.7)';
+            ctx.roundRect ? ctx.roundRect(0, 0, 256, 64, 8) : ctx.fillRect(0, 0, 256, 64);
+            ctx.fill();
+            ctx.strokeStyle = colorHex || '#00e5ff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.font = 'bold 24px "JetBrains Mono", monospace';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const displayMsg = message.length > 14 ? message.substring(0, 12) + '..' : message;
+            ctx.fillText(displayMsg, 128, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(30, 8, 1);
+            return sprite;
+        }
+
+        function render3DGraph(edges) {
+            // Also draw to hidden canvas for backwards compatibility
+            drawGraphCanvas(edges);
+
+            if (!graphScene) return;
+
+            // Clear old groups
+            while (graphNodesGroup.children.length > 0) graphNodesGroup.remove(graphNodesGroup.children[0]);
+            while (graphEdgesGroup.children.length > 0) graphEdgesGroup.remove(graphEdgesGroup.children[0]);
+            graphNodeMeshes = [];
+
+            if (!edges || edges.length === 0) return;
+
+            // Aggregate unique nodes
+            const nodeMap = new Map();
+            edges.forEach(e => {
+                if (!nodeMap.has(e.source_id)) nodeMap.set(e.source_id, { id: e.source_id, layer: e.layer });
+                if (!nodeMap.has(e.target_id)) nodeMap.set(e.target_id, { id: e.target_id, layer: e.layer });
+            });
+
+            const nodes = Array.from(nodeMap.values());
+            const radius = 130;
+            const count = nodes.length;
+
+            nodes.forEach((n, idx) => {
+                const phi = Math.acos(-1 + (2 * idx) / count);
+                const theta = Math.sqrt(count * Math.PI) * phi;
+                n.x = radius * Math.cos(theta) * Math.sin(phi);
+                n.y = radius * Math.sin(theta) * Math.sin(phi);
+                n.z = radius * Math.cos(phi);
+
+                // Determine color
+                let colHex = 0x00e5ff;
+                let cssCol = '#00e5ff';
+                if (n.layer === 'causal') { colHex = 0xf59e0b; cssCol = '#f59e0b'; }
+                else if (n.layer === 'temporal') { colHex = 0xc084fc; cssCol = '#c084fc'; }
+                else if (n.layer === 'entity') { colHex = 0x10b981; cssCol = '#10b981'; }
+
+                // Sphere Node
+                const sGeom = new THREE.SphereGeometry(6.5, 24, 24);
+                const sMat = new THREE.MeshBasicMaterial({ color: colHex });
+                const mesh = new THREE.Mesh(sGeom, sMat);
+                mesh.position.set(n.x, n.y, n.z);
+                mesh.userData = n;
+                graphNodesGroup.add(mesh);
+                graphNodeMeshes.push(mesh);
+
+                // Halo ring
+                const haloGeom = new THREE.RingGeometry(8, 9.5, 24);
+                const haloMat = new THREE.MeshBasicMaterial({ color: colHex, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+                const halo = new THREE.Mesh(haloGeom, haloMat);
+                halo.position.set(n.x, n.y, n.z);
+                graphNodesGroup.add(halo);
+
+                // Text Billboard Sprite
+                const sprite = makeTextSprite(n.id, cssCol);
+                sprite.position.set(n.x, n.y + 14, n.z);
+                graphNodesGroup.add(sprite);
+            });
+
+            const posLookup = new Map(nodes.map(n => [n.id, n]));
+
+            // Add 3D Edges
+            edges.forEach(e => {
+                const src = posLookup.get(e.source_id);
+                const tgt = posLookup.get(e.target_id);
+                if (!src || !tgt) return;
+
+                const points = [
+                    new THREE.Vector3(src.x, src.y, src.z),
+                    new THREE.Vector3(tgt.x, tgt.y, tgt.z)
+                ];
+                const lineGeom = new THREE.BufferGeometry().setFromPoints(points);
+                let colHex = 0x00e5ff;
+                if (e.layer === 'causal') colHex = 0xf59e0b;
+                else if (e.layer === 'temporal') colHex = 0xc084fc;
+
+                const lineMat = new THREE.LineBasicMaterial({ color: colHex, transparent: true, opacity: 0.5, linewidth: 2 });
+                const line = new THREE.Line(lineGeom, lineMat);
+                graphEdgesGroup.add(line);
+            });
+        }
+
+        function animateGraph3D() {
+            requestAnimationFrame(animateGraph3D);
+            if (graphControls) graphControls.update();
+            if (graphRenderer && graphScene && graphCamera) {
+                graphRenderer.render(graphScene, graphCamera);
+            }
+        }
+
+        // ==================== 4. THREE.JS WORKING MEMORY PRISMS ====================
+        let memScene, memCamera, memRenderer;
+        let memPrisms = [];
+
+        function initMemory3D() {
+            const canvas = document.getElementById('memory-3d-canvas');
+            if (!canvas) return;
+            const rect = canvas.getBoundingClientRect();
+
+            memScene = new THREE.Scene();
+            memCamera = new THREE.PerspectiveCamera(45, (rect.width || 600) / (rect.height || 130), 1, 1000);
+            memCamera.position.set(0, 35, 120);
+            memCamera.lookAt(0, 0, 0);
+
+            memRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+            memRenderer.setSize(rect.width || 600, rect.height || 130);
+
+            const grid = new THREE.GridHelper(300, 20, 0x00e5ff, 0x1e293b);
+            grid.position.y = -15;
+            memScene.add(grid);
+
+            // 4 Floating Holographic Prisms
+            const blockNames = ['persona_self', 'human_profile', 'workspace_state', 'scratchpad_stm'];
+            const colors = [0x00e5ff, 0x38bdf8, 0xc084fc, 0x10b981];
+            memPrisms = [];
+
+            blockNames.forEach((name, i) => {
+                const geom = new THREE.CylinderGeometry(8, 8, 26, 6);
+                const mat = new THREE.MeshBasicMaterial({ color: colors[i], wireframe: true, transparent: true, opacity: 0.85 });
+                const prism = new THREE.Mesh(geom, mat);
+                prism.position.set(-105 + i * 70, 0, 0);
+                prism.userData = { name: name, baseHeight: 26 };
+                memScene.add(prism);
+                memPrisms.push(prism);
+            });
+
+            animateMemory3D();
+        }
+
+        window.updateMemoryPrismsFromState = function(blocks) {
+            if (!blocks || memPrisms.length === 0) return;
+            memPrisms.forEach(p => {
+                const b = blocks[p.userData.name];
+                if (b && b.value) {
+                    const ratio = Math.min(2.5, Math.max(0.4, b.value.length / 500));
+                    p.scale.y = ratio;
+                }
+            });
+        };
+
+        function animateMemory3D() {
+            requestAnimationFrame(animateMemory3D);
+            memPrisms.forEach((p, idx) => {
+                p.rotation.y += 0.015;
+                p.position.y = Math.sin(Date.now() * 0.003 + idx) * 3;
+            });
+            if (memRenderer && memScene && memCamera) {
+                memRenderer.render(memScene, memCamera);
+            }
+        }
+
+        // ==================== 5. 3D CARD PHYSICS TILT ====================
+        function initTiltPhysics() {
+            document.querySelectorAll('.tilt-card').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    const rotX = ((y - centerY) / centerY) * -8;
+                    const rotY = ((x - centerX) / centerX) * 8;
+                    card.style.transform = `perspective(1000px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) scale3d(1.01, 1.01, 1.01)`;
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+                });
+            });
         }
 
         // ==================== Working Memory Functions ====================
@@ -1165,6 +1879,9 @@ HTML_DASHBOARD = """
                     if (txt) txt.value = b.value;
                     if (badge) badge.innerText = `${b.char_count} / ${b.char_limit} chars`;
                     if (bar) bar.style.width = `${Math.min(100, (b.char_count / b.char_limit) * 100)}%`;
+                }
+                if (window.updateMemoryPrismsFromState) {
+                    window.updateMemoryPrismsFromState(blocks);
                 }
             } catch (e) {
                 console.error('Failed to load blocks:', e);
@@ -1199,7 +1916,6 @@ HTML_DASHBOARD = """
         }
 
         // ==================== Bi-Temporal Graph Functions ====================
-        let currentGraphEdges = [];
         async function loadGraphPane() {
             try {
                 const res = await fetch('/api/graph');
@@ -1225,7 +1941,7 @@ HTML_DASHBOARD = """
         }
 
         function renderGraphEdges(edges) {
-            drawGraphCanvas(edges);
+            render3DGraph(edges);
             const tbody = document.getElementById('graph-edges-body');
             if (!edges || edges.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-dim);">No graph edges found.</td></tr>`;
@@ -1248,70 +1964,6 @@ HTML_DASHBOARD = """
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (!edges || edges.length === 0) {
-                ctx.fillStyle = '#64748b';
-                ctx.font = '12px "JetBrains Mono"';
-                ctx.textAlign = 'center';
-                ctx.fillText('No active relations found. Assert one below!', canvas.width / 2, canvas.height / 2);
-                return;
-            }
-
-            const nodes = new Map();
-            edges.forEach(e => {
-                if (!nodes.has(e.source_id)) nodes.set(e.source_id, { id: e.source_id, layer: e.layer });
-                if (!nodes.has(e.target_id)) nodes.set(e.target_id, { id: e.target_id, layer: e.layer });
-            });
-
-            const nodeArr = Array.from(nodes.values());
-            const cx = canvas.width / 2;
-            const cy = canvas.height / 2;
-            const radius = Math.min(cx, cy) - 35;
-
-            nodeArr.forEach((node, idx) => {
-                const angle = (idx / nodeArr.length) * 2 * Math.PI;
-                node.x = cx + radius * Math.cos(angle);
-                node.y = cy + radius * Math.sin(angle);
-            });
-
-            const nodeMap = new Map(nodeArr.map(n => [n.id, n]));
-
-            // Draw links
-            edges.forEach(e => {
-                const src = nodeMap.get(e.source_id);
-                const tgt = nodeMap.get(e.target_id);
-                if (!src || !tgt) return;
-
-                ctx.beginPath();
-                ctx.moveTo(src.x, src.y);
-                ctx.lineTo(tgt.x, tgt.y);
-                let col = 'rgba(56, 189, 248, 0.35)';
-                if (e.layer === 'causal') col = 'rgba(245, 158, 11, 0.35)';
-                else if (e.layer === 'temporal') col = 'rgba(168, 85, 247, 0.35)';
-                ctx.strokeStyle = col;
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-            });
-
-            // Draw nodes
-            nodeArr.forEach(node => {
-                ctx.beginPath();
-                ctx.arc(node.x, node.y, 8, 0, 2 * Math.PI);
-                let col = '#38bdf8';
-                if (node.layer === 'causal') col = '#f59e0b';
-                else if (node.layer === 'temporal') col = '#a855f7';
-                ctx.fillStyle = col;
-                ctx.shadowColor = col;
-                ctx.shadowBlur = 8;
-                ctx.fill();
-                ctx.shadowBlur = 0;
-
-                ctx.fillStyle = '#f1f5f9';
-                ctx.font = '10px "JetBrains Mono"';
-                ctx.textAlign = 'center';
-                const label = node.id.length > 14 ? node.id.substring(0, 12) + '..' : node.id;
-                ctx.fillText(label, node.x, node.y + 18);
-            });
         }
 
         function filterGraph(layer, btn) {
@@ -1374,7 +2026,7 @@ HTML_DASHBOARD = """
                 }
 
                 grid.innerHTML = data.skills.map((s, idx) => `
-                    <div class="skill-card">
+                    <div class="skill-card tilt-card">
                         <div class="skill-head">
                             <span class="skill-name">⚡ ${s.name}</span>
                             <span class="skill-score">Score: ${s.reusability_score}/10</span>
@@ -1397,6 +2049,8 @@ HTML_DASHBOARD = """
                         <div class="skill-output-box" id="skill-out-${idx}"></div>
                     </div>
                 `).join('');
+
+                initTiltPhysics();
             } catch (e) {
                 console.error('Failed to load skills:', e);
             }
@@ -1621,7 +2275,7 @@ HTML_DASHBOARD = """
         function renderAmbientNotice(data) {
             const container = document.getElementById('chat-messages');
             const div = document.createElement('div');
-            div.style = 'font-size:0.8rem; color:#94a3b8; font-style:italic; padding:4px 12px; background:rgba(56,189,248,0.05); border-left:2px solid #38bdf8; border-radius:2px;';
+            div.style = 'font-size:0.8rem; color:#94a3b8; font-style:italic; padding:6px 14px; background:rgba(0,229,255,0.06); border-left:3px solid #00e5ff; border-radius:4px; margin-top:8px;';
             div.innerText = `[Ambient Cognitive Notice]: ${data.notice}`;
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
@@ -1690,7 +2344,7 @@ HTML_DASHBOARD = """
             if (isPanic) {
                 await fetch('/api/governance/reset_panic', { method: 'POST' });
                 btn.innerText = '🚨 PANIC STOP';
-                btn.style.background = 'rgba(239, 68, 68, 0.2)';
+                btn.style.background = 'rgba(239, 68, 68, 0.18)';
                 btn.style.color = 'var(--accent-red)';
                 appendMessage('Operator reset panic switch. Normal cognitive ticks resumed.', 'msg-cortex');
             } else {
@@ -1702,6 +2356,15 @@ HTML_DASHBOARD = """
                 appendMessage('🚨 EMERGENCY PANIC KILLSWITCH TRIGGERED! All autonomous execution and actions are frozen.', 'msg-cortex');
             }
         }
+
+        // Initialize 3D Graphics and Tilt Physics on Window Load
+        window.addEventListener('DOMContentLoaded', () => {
+            initBackground3D();
+            initStage3D();
+            initGraph3D();
+            initMemory3D();
+            initTiltPhysics();
+        });
     </script>
 </body>
 </html>
