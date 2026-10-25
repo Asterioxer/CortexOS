@@ -135,6 +135,13 @@ class WorkingMemoryManager:
             raise KeyError(f"Memory block '{label}' does not exist.")
         return self.blocks[label]
 
+    def update_block(self, label: str, new_value: str) -> str:
+        """Updates a block's text and persists to disk."""
+        block = self.get_block(label)
+        res = block.rethink(new_value)
+        self.save()
+        return res
+
     def core_memory_append(self, block_label: str, content: str) -> str:
         res = self.get_block(block_label).append(content)
         self.save()

@@ -209,6 +209,30 @@ class MemorySubstrate:
             """, (timestamp, timestamp, limit))
             return [dict(row) for row in cursor.fetchall()]
 
+    def get_all_graph_edges(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Returns all bi-temporal graph edges across MAGMA layers."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, source_id, target_id, relation, layer, valid_from, valid_to, recorded_at, provenance_ref, contradiction_group
+                FROM graph_edges
+                ORDER BY recorded_at DESC
+                LIMIT ?
+            """, (limit,))
+            return [dict(row) for row in cursor.fetchall()]
+
+    def get_recent_engrams(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Returns recent atomic engrams extracted across sleep cycles."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, episode_id, semantic_type, statement, provenance_ref, valid_from, valid_to, recorded_at
+                FROM engrams
+                ORDER BY recorded_at DESC
+                LIMIT ?
+            """, (limit,))
+            return [dict(row) for row in cursor.fetchall()]
+
     # --- Tier 3 Operations: Vector Store ---
     async def index_vector(self, item_id: str, text: str, embedding: np.ndarray, metadata: Optional[Dict] = None):
         emb_bytes = embedding.astype(np.float32).tobytes()
@@ -278,6 +302,17 @@ class MemorySubstrate:
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (tool_name, docstring, file_path, score, atlas_pamphlet, time.time()))
             conn.commit()
+
+    def get_all_skills(self) -> List[Dict[str, Any]]:
+        """Returns all crystallized procedural skills from the registry."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT name, docstring, file_path, reusability_score, atlas_pamphlet, created_at
+                FROM procedural_skills
+                ORDER BY reusability_score DESC, created_at DESC
+            """)
+            return [dict(row) for row in cursor.fetchall()]
 
     # --- Context & Hybrid Retrieval ---
     async def retrieve_hybrid_context(self, queries: List[str]) -> str:

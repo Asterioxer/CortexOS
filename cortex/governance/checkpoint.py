@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 class GitShadowCheckpointManager:
     """
@@ -30,9 +30,13 @@ class GitShadowCheckpointManager:
             cwd=str(self.workspace_dir),
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             env=current_env
         )
-        return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+        stdout = (proc.stdout or "").strip()
+        stderr = (proc.stderr or "").strip()
+        return proc.returncode, stdout, stderr
 
     def create_checkpoint(self, task_id: str, label: str = "pre") -> str:
         """Creates a deterministic shadow commit pinned under refs/checkpoints/$task_id/$label."""
@@ -138,3 +142,40 @@ class GitShadowCheckpointManager:
             report_file.write_text(diff_out, encoding="utf-8")
             return str(report_file)
         return None
+
+    def list_checkpoints(self) -> List[Dict[str, Any]]:
+        """Lists all pinned shadow checkpoints under refs/checkpoints/."""
+        code, out, _ = self._run_git(["for-each-ref", "--format=%(refname)|%(objectname)|%(subject)", "refs/checkpoints/"])
+        if code != 0 or not out:
+            return []
+        results = []
+        for line in out.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split("|", 2)
+            if len(parts) >= 2:
+                ref = parts[0]
+                sha = parts[1]
+                msg = parts[2] if len(parts) > 2 else ""
+                ref_parts = ref.split("/")
+                task_id = ref_parts[2] if len(ref_parts) > 2 else "unknown"
+                label = "/".join(ref_parts[3:]) if len(ref_parts) > 3 else "pre"
+                results.append({
+                    "ref": ref,
+                    "sha": sha[:10],
+                    "task_id": task_id,
+                    "label": label,
+                    "message": msg
+                })
+        results.reverse()
+        return results
+
+    def get_working_tree_diff(self) -> str:
+        """Returns the current git diff or status of working tree."""
+        code, out, _ = self._run_git(["diff", "HEAD"])
+        if code == 0 and out:
+            return out
+        code_s, out_s, _ = self._run_git(["status", "--short"])
+        return out_s if out_s else "Working tree clean. No uncommitted modifications."
+
