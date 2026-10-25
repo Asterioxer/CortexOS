@@ -101,6 +101,17 @@ async def cmd_status(args):
     print(f"  Shadow Checkpoint Directory: {stack['sandbox'].checkpoint_mgr.snapshots_dir}")
     print("=" * 60)
 
+async def cmd_interact(args):
+    from cortex.interactive import CortexInteractiveSession
+    stack = build_cortex_stack()
+    session = CortexInteractiveSession(stack)
+    await session.run()
+
+def cmd_web(args):
+    from cortex.server import start_server
+    print(f"[CortexOS] Starting Real-Time Neural Dashboard on http://{args.host}:{args.port}...")
+    start_server(host=args.host, port=args.port)
+
 def main():
     parser = argparse.ArgumentParser(description="CortexOS: Local-First Cognitive Operating System")
     subparsers = parser.add_subparsers(dest="command")
@@ -111,6 +122,16 @@ def main():
     sleep_parser = subparsers.add_parser("sleep", help="Run offline Digital Sleep consolidation")
     status_parser = subparsers.add_parser("status", help="Show system status and active memory blocks")
 
+    interact_parser = subparsers.add_parser("interact", help="Launch real-time interactive terminal shell")
+    
+    web_parser = subparsers.add_parser("web", help="Launch real-time web UI dashboard")
+    web_parser.add_argument("--host", default="127.0.0.1", help="Host interface (default: 127.0.0.1)")
+    web_parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
+
+    ui_parser = subparsers.add_parser("ui", help="Alias for web dashboard")
+    ui_parser.add_argument("--host", default="127.0.0.1", help="Host interface (default: 127.0.0.1)")
+    ui_parser.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
+
     args = parser.parse_args()
     if args.command == "tick":
         asyncio.run(cmd_tick(args))
@@ -118,8 +139,13 @@ def main():
         asyncio.run(cmd_sleep(args))
     elif args.command == "status":
         asyncio.run(cmd_status(args))
+    elif args.command == "interact":
+        asyncio.run(cmd_interact(args))
+    elif args.command in ["web", "ui"]:
+        cmd_web(args)
     else:
-        parser.print_help()
+        # Default to interactive if no command specified
+        asyncio.run(cmd_interact(args))
 
 if __name__ == "__main__":
     main()
