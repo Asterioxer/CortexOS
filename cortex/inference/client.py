@@ -107,7 +107,15 @@ class LocalInferenceClient:
         perception_match = re.search(r"<current_perception>\s*(.*?)\s*</current_perception>", global_state_prompt, re.DOTALL)
         user_input = perception_match.group(1).lower() if perception_match else global_state_prompt.lower()
 
-        # 1. Process / Tasks query (check first before generic 'ram' / 'cpu')
+        # 1. Media / Song / Audio query
+        if any(k in user_input for k in ["song", "music", "playing", "audio", "track", "media"]):
+            return {"confidence": 0.98, "action": {"action": "get_media"}}
+
+        # 2. Open User Applications query
+        if any(k in user_input for k in ["applications are open", "apps are open", "what apps", "open applications", "which applications", "running applications"]):
+            return {"confidence": 0.98, "action": {"action": "get_user_applications", "top_n": 8}}
+
+        # 3. Process / Tasks query (check before generic 'ram' / 'cpu')
         if any(k in user_input for k in ["process", "processes", "task manager", "top memory", "top cpu", "eating ram", "what is running"]):
             return {"confidence": 0.96, "action": {"action": "get_processes", "top_n": 8}}
 
@@ -284,6 +292,30 @@ class LocalInferenceClient:
         # 1. Zero-latency exact somatosensory formatting
         if action_result:
             act_name = action_result.get("action", "")
+            if act_name == "get_media" and "media" in action_result:
+                m = action_result["media"]
+                if m.get("active"):
+                    album_line = f"- **Album:** {m['album']}\n" if m.get("album") else ""
+                    return (
+                        f"I checked Windows Media Controls on your laptop:\n\n"
+                        f"- 🎵 **Track:** **{m['title']}**\n"
+                        f"- 👤 **Artist:** {m['artist']}\n"
+                        f"{album_line}"
+                        f"- 🌐 **Source Application:** {m['app']}\n"
+                        f"- ▶️ **Playback Status:** {m['status']}"
+                    )
+                return "I checked Windows Media Controls across your laptop: there is currently no active audio or media playing."
+
+            if act_name == "get_user_applications" and "apps" in action_result:
+                lines = [
+                    f"  {i+1}. **{app['name']}** ({app['process_count']} processes) — {app['mem_pct']}% RAM | {app['cpu_pct']}% CPU"
+                    for i, app in enumerate(action_result["apps"])
+                ]
+                return (
+                    "Here are the active user-facing applications currently open on your laptop (excluding background Windows kernel services):\n\n"
+                    + "\n".join(lines)
+                )
+
             if act_name == "get_gpu" and "gpu" in action_result:
                 g = action_result["gpu"]
                 if g.get("available"):

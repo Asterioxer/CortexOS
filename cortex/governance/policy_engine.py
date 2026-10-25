@@ -61,7 +61,9 @@ class PolicyEngine:
         "get_ram",
         "get_battery",
         "get_processes",
-        "find_process"
+        "find_process",
+        "get_media",
+        "get_user_applications"
     }
 
     def __init__(self, cedar_policy_path: Optional[str] = None):

@@ -327,6 +327,14 @@ class GWACognitiveTickEngine:
                 procs = self.somato.get_processes(top_n=action.get("top_n", 8))
                 return {"action": "get_processes", "processes": procs, "status": "SUCCESS"}, None
 
+            elif action_type == "get_user_applications":
+                apps = self.somato.get_user_applications(top_n=action.get("top_n", 8))
+                return {"action": "get_user_applications", "apps": apps, "status": "SUCCESS"}, None
+
+            elif action_type == "get_media":
+                media = await self.somato.get_active_media_playback()
+                return {"action": "get_media", "media": media, "status": "SUCCESS"}, None
+
             elif action_type == "find_process":
                 q = action.get("query") or resource or ""
                 matches = self.somato.find_process(q)

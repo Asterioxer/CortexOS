@@ -430,7 +430,7 @@ HTML_DASHBOARD = """
                     data.candidates.map(c => `<div>* <b>${c.perspective}</b>: ${c.thought_text} (${c.score > 0 ? '+' : ''}${c.score})</div>`).join('');
                 div.appendChild(thoughtDetails);
             }
-            if (data.action_result && data.action_result.stdout) {
+            if (data.action_result && data.action_result.stdout && (data.action_result.action === 'command_run' || data.action_result.action === 'crystallize_skill')) {
                 const outBox = document.createElement('div');
                 outBox.style = 'margin-top:8px; font-family:"JetBrains Mono", monospace; font-size:0.8rem; background:rgba(0,0,0,0.4); padding:6px 10px; border-radius:4px; color:#10b981;';
                 outBox.innerText = '$ ' + data.action_result.stdout;

@@ -124,6 +124,89 @@ class SystemSomatosensory:
         procs.sort(key=lambda x: x.get(key, 0), reverse=True)
         return procs[:top_n]
 
+    def get_user_applications(self, top_n: int = 10) -> List[Dict[str, Any]]:
+        """Filters out low-level Windows kernel/system background services to report real user-facing desktop applications."""
+        SYSTEM_SERVICES = {
+            'system', 'registry', 'memcompression', 'smss.exe', 'csrss.exe', 'wininit.exe',
+            'services.exe', 'lsass.exe', 'svchost.exe', 'fontdrvhost.exe', 'winlogon.exe',
+            'dwm.exe', 'spoolsv.exe', 'sihost.exe', 'taskhostw.exe', 'ctfmon.exe',
+            'runtimebroker.exe', 'shellexperiencehost.exe', 'searchindexer.exe',
+            'searchhost.exe', 'startmenuexperiencehost.exe', 'textinputhost.exe',
+            'applicationframehost.exe', 'smartscreen.exe', 'securityhealthservice.exe',
+            'wmiprvse.exe', 'conhost.exe', 'dashost.exe', 'dllhost.exe', 'msedgewebview2.exe'
+        }
+
+        apps = {}
+        for p in psutil.process_iter(['pid', 'name', 'exe', 'memory_percent', 'cpu_percent']):
+            try:
+                name = p.info['name']
+                if not name or name.lower() in SYSTEM_SERVICES:
+                    continue
+                lower_name = name.lower()
+                if lower_name not in apps:
+                    apps[lower_name] = {
+                        'name': name,
+                        'pids': [p.info['pid']],
+                        'mem_pct': p.info.get('memory_percent') or 0.0,
+                        'cpu_pct': p.info.get('cpu_percent') or 0.0,
+                        'exe': p.info.get('exe') or ''
+                    }
+                else:
+                    apps[lower_name]['pids'].append(p.info['pid'])
+                    apps[lower_name]['mem_pct'] += (p.info.get('memory_percent') or 0.0)
+                    apps[lower_name]['cpu_pct'] += (p.info.get('cpu_percent') or 0.0)
+            except Exception:
+                pass
+
+        sorted_apps = sorted(apps.values(), key=lambda x: x['mem_pct'], reverse=True)
+        return [
+            {
+                'name': a['name'],
+                'process_count': len(a['pids']),
+                'mem_pct': round(a['mem_pct'], 2),
+                'cpu_pct': round(a['cpu_pct'], 1),
+                'exe': a['exe']
+            }
+            for a in sorted_apps[:top_n]
+        ]
+
+    async def get_active_media_playback(self) -> Dict[str, Any]:
+        """Queries Windows Global System Media Transport Controls (GSMTC) for currently playing song/video/audio."""
+        try:
+            from winsdk.windows.media.control import GlobalSystemMediaTransportControlsSessionManager as MediaManager
+            mgr = await MediaManager.request_async()
+            cur = mgr.get_current_session()
+            sessions = mgr.get_sessions()
+            target = cur or (sessions[0] if len(sessions) > 0 else None)
+            if target:
+                props = await target.try_get_media_properties_async()
+                info = target.get_playback_info()
+                status_map = {0: "Closed", 1: "Opened", 2: "Changing", 3: "Stopped", 4: "Playing", 5: "Paused"}
+                app_id = target.source_app_user_model_id or "Unknown Application"
+                friendly_app = app_id
+                if "brave" in app_id.lower():
+                    friendly_app = "Brave Browser"
+                elif "chrome" in app_id.lower():
+                    friendly_app = "Google Chrome"
+                elif "spotify" in app_id.lower():
+                    friendly_app = "Spotify"
+                elif "apple" in app_id.lower():
+                    friendly_app = "Apple Music"
+                
+                return {
+                    "active": True,
+                    "app": friendly_app,
+                    "raw_app_id": app_id,
+                    "title": props.title or "Unknown Title",
+                    "artist": props.artist or "Unknown Artist",
+                    "album": props.album_title or "",
+                    "status": status_map.get(info.playback_status, "Unknown")
+                }
+        except Exception as e:
+            return {"active": False, "error": str(e)}
+
+        return {"active": False, "message": "No active media playback detected on your laptop."}
+
     def find_process(self, query: str) -> List[Dict[str, Any]]:
         """Finds processes matching name or pid."""
         matches = []
