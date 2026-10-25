@@ -14,20 +14,35 @@
 
 Standard AI assistants and voice chatbots operate as **Bounded-Input Bounded-Output (BIBO)** pipelines: they remain dormant until explicitly prompted, collapse all memory into a transient prompt text window, execute rigid hard-coded tool calls, and evaporate their cognitive state as soon as a session terminates.
 
-**CortexOS** departs fundamentally from the passive assistant paradigm. Built as a laptop-resident discrete dynamical system, CortexOS maintains a continuous internal monologue, monitors its own reasoning confidence, writes and compiles its own software tools when encountering novel problems, and consolidates lived daily experiences into permanent episodic, semantic, and procedural memory during offline **asynchronous digital sleep** cycles.
+**CortexOS** departs fundamentally from the passive assistant paradigm. Built as a laptop-resident discrete dynamical system with full-duplex neural voice embodiment and real-time Windows 11 somatosensory awareness, CortexOS maintains a continuous internal monologue, monitors its own reasoning confidence, writes and compiles its own software tools when encountering novel problems, and consolidates lived daily experiences into permanent episodic, semantic, and procedural memory during offline **asynchronous digital sleep** cycles.
 
 ```
 +-----------------------------------------------------------------------------------+
 |                           CORTEX-OS COGNITIVE RUNTIME                             |
 +-----------------------------------------------------------------------------------+
-|  [ Layer 1: Embodiment ]   Live Somatosensory Telemetry (CPU/RAM/GPU/GSMTC Audio) |
+|  [ Layer 1: Embodiment ]   Full-Duplex Studio Voice + Silero VAD + Telemetry/GSMTC|
 |  [ Layer 2: Workspace  ]   GWA Cognitive Tick Loop + Shannon Entropy Temperature  |
 |  [ Layer 3: Memory     ]   4-Tier Letta Blocks + SQLite Bi-Temporal MAGMA Graph   |
 |  [ Layer 4: Skills     ]   Autopoietic Skill Crystallizer (FRIDAY / Voyager)      |
 |  [ Layer 5: Sleep      ]   4-Stage Micro-Sleep Engrams & LoRA Dataset Synthesizer |
 |  [ Layer 6: Governance ]   Sub-0.1ms Cedar Policy Gate + Deterministic Git Rollback|
+|  [ Layer 7: MoE Tier   ]   Multi-Model Dynamic Local Routing (3B / Uncensored / 9B)|
 +-----------------------------------------------------------------------------------+
 ```
+
+---
+
+## 🎙️ Neural Voice Embodiment & Ambient Sensing (Fused from Voice Lab)
+
+CortexOS incorporates the complete production-hardened full-duplex voice stack from Voice Lab:
+
+* **Studio-Grade Neural Voices:** High-fidelity Edge-TTS synthesis with switchable personas (`jarvis`, `friday`, `edith`, `christopher`, `neerja`, `jenny`, `guy`) and seamless offline Windows SAPI fallback.
+* **Sub-10ms Instant Hardware Barge-In:** Immediate hardware audio cutoff via `sounddevice.stop()` when speech or interruption is detected.
+* **Silero VAD v6 & Spectral Noise Suppression:** Real-time chunk-by-chunk ONNX neural voice activity detection (32ms frames, <0.8ms compute) combined with a 200Hz–3800Hz vocal bandpass filter and Boll/Berouti spectral subtraction for laptop fan noise.
+* **Anti-Hallucination Guardrails:** 33-item phantom silence blacklist and acoustic RMS energy gates preventing phantom speech triggers.
+* **Affective Sentiment Tracking:** Real-time emotion detection (`frustrated`, `urgent`, `excited`, `stressed`, `confused`, `grateful`, `neutral`) dynamically tuning cognitive temperature ($0.10$–$0.55$) and execution style.
+* **Executive Briefing & Session Unlock Sentinel:** Native Windows message window (`WTSRegisterSessionNotification`) providing 0% CPU listening for desktop session unlocks, delivering time-of-day greetings, battery health, and top live Google RSS news.
+* **Native Desktop Companion HUD:** Pure Windows desktop Tkinter GUI application featuring a 60 FPS procedural 3D quantum core holographic particle sphere and gyroscopic gimbals with state-reactive chromatic breathing.
 
 ---
 
@@ -105,14 +120,35 @@ pip install -r requirements.txt
 ### 2. Run Test Suite
 ```bash
 pytest -v
-# Verified: 25/25 unit, integration, and UI tests pass cleanly
+# Verified: 40/40 unit, integration, and UI tests pass cleanly across all subsystems
 ```
 
-### 3. Launch the Web Dashboard
+### 3. Launch Modes
+
+#### Option A: Full-Duplex Voice Assistant (Terminal & Hands-Free Mic)
+```bash
+.\start_cortex_voice.bat
+# or
+python -m cortex.voice_assistant
+```
+
+#### Option B: Native 3D Quantum Core Companion HUD (Pure Tkinter Desktop GUI)
+```bash
+.\launch_cortex_hud.bat
+# or
+python cortex/companion_hud.py
+```
+
+#### Option C: WebGL 3D Glassmorphism Operations Center
 ```bash
 python cortex/server.py
 ```
 Open **`http://127.0.0.1:8000`** in your browser.
+
+#### Option D: Auto-Start on Windows Login
+```bash
+python cortex/embodiment/autostart.py --enable
+```
 
 ---
 

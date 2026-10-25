@@ -599,6 +599,145 @@ class SystemSomatosensory:
         except Exception as e:
             return {"status": "ERROR", "error": str(e)}
 
+    def open_chrome_tab(self, url_or_query: str) -> Dict[str, Any]:
+        """Opens a new tab in Google Chrome with URL or Google Search query."""
+        import urllib.parse
+        import webbrowser
+        clean = url_or_query.strip()
+        if clean.startswith("http://") or clean.startswith("https://") or clean.startswith("www."):
+            target_url = clean if clean.startswith("http") else f"https://{clean}"
+        else:
+            encoded = urllib.parse.quote(clean)
+            target_url = f"https://www.google.com/search?q={encoded}"
+
+        try:
+            # Check if Chrome executable is present
+            chrome_paths = [
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")
+            ]
+            chrome_exe = next((p for p in chrome_paths if os.path.exists(p)), None)
+            if chrome_exe:
+                subprocess.Popen([chrome_exe, target_url])
+            else:
+                webbrowser.open_new_tab(target_url)
+            return {"status": "SUCCESS", "url": target_url, "action": "open_chrome_tab"}
+        except Exception as e:
+            return {"status": "ERROR", "error": str(e)}
+
+    def claude_web_prompt(self, prompt: str) -> Dict[str, Any]:
+        """Opens Claude AI in browser and prepares prompt."""
+        import webbrowser
+        try:
+            import pyperclip
+            pyperclip.copy(prompt)
+        except Exception:
+            pass
+        url = "https://claude.ai/new"
+        webbrowser.open_new_tab(url)
+        return {"status": "SUCCESS", "url": url, "prompt_copied": True, "action": "claude_web_prompt"}
+
+    def open_web_app(self, app_name: str) -> Dict[str, Any]:
+        """Opens common web applications."""
+        import webbrowser
+        web_apps = {
+            "linkedin": "https://www.linkedin.com/feed/",
+            "youtube": "https://www.youtube.com",
+            "twitter": "https://x.com",
+            "x": "https://x.com",
+            "github": "https://github.com",
+            "gmail": "https://mail.google.com",
+            "claude": "https://claude.ai",
+            "chatgpt": "https://chatgpt.com",
+            "reddit": "https://www.reddit.com",
+            "instagram": "https://www.instagram.com",
+            "facebook": "https://www.facebook.com",
+            "netflix": "https://www.netflix.com",
+            "whatsapp": "https://web.whatsapp.com",
+        }
+        clean = app_name.lower().strip()
+        url = web_apps.get(clean)
+        if url:
+            webbrowser.open_new_tab(url)
+            return {"status": "SUCCESS", "app": clean, "url": url}
+        return {"status": "NOT_FOUND", "message": f"Web app '{app_name}' not in directory."}
+
+    def create_and_open_code(self, filename: str, code: str, app: str = "notepad") -> Dict[str, Any]:
+        """Creates code in sandbox directory and opens it in editor."""
+        sandbox_dir = Path(self.workspace_dir) / ".cortex" / "sandbox"
+        sandbox_dir.mkdir(parents=True, exist_ok=True)
+        target = sandbox_dir / filename
+        target.write_text(code, encoding="utf-8")
+
+        clean_app = app.lower().strip()
+        if "code" in clean_app or "vscode" in clean_app:
+            subprocess.Popen(["code", str(target)], shell=True)
+        else:
+            subprocess.Popen(["notepad.exe", str(target)])
+        return {"status": "SUCCESS", "path": str(target), "editor": clean_app}
+
+    def is_sensitive_path(self, path: str) -> bool:
+        """Security guardrail preventing access to credentials, browser databases, and SAM."""
+        lower = str(Path(path).resolve()).lower()
+        blocked = [
+            r"\.ssh", r"\.aws", r"\.azure", r"\.kube",
+            r"login data", r"cookies", r"web data",
+            r"wallet.dat", r"keystore", r"id_rsa", r"id_ed25519",
+            r"sam", r"system32\config\sam", r"vaultcmd"
+        ]
+        return any(b in lower for b in blocked)
+
+    def fetch_prioritized_news(self, topic: str = "top headlines", max_items: int = 5) -> str:
+        """Fetches live RSS news and prioritizes items based on importance scoring."""
+        import urllib.request
+        import urllib.parse
+        import xml.etree.ElementTree as ET
+        import re
+
+        critical_kw = {
+            "war": 9, "conflict": 8, "missile": 9, "treaty": 8, "sanction": 8,
+            "election": 7, "inflation": 7, "interest rate": 7, "economy": 7,
+            "prime minister": 7, "president": 7, "border": 8, "ai": 8,
+            "semiconductor": 8, "nuclear": 9, "security": 7, "gdp": 7
+        }
+        trivia_kw = {"actor": -3, "celebrity": -4, "dating": -4, "wedding": -3}
+
+        clean_topic = topic.strip()
+        encoded = urllib.parse.quote(clean_topic)
+        url = f"https://news.google.com/rss/search?q={encoded}&hl=en-IN&gl=IN&ceid=IN:en"
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            with urllib.request.urlopen(req, timeout=4.0) as resp:
+                root = ET.fromstring(resp.read())
+                items = root.findall(".//item")
+                if not items:
+                    return f"No live news reports found for '{clean_topic}'."
+
+                scored_items = []
+                for item in items[:12]:
+                    title_elem = item.find("title")
+                    title = title_elem.text if title_elem is not None else "Untitled"
+                    clean_title = title.split(" - ")[0].strip()
+                    lower = clean_title.lower()
+                    score = 5
+                    for kw, weight in critical_kw.items():
+                        if re.search(r"\b" + re.escape(kw) + r"\b", lower):
+                            score += weight // 2
+                    for kw, pen in trivia_kw.items():
+                        if re.search(r"\b" + re.escape(kw) + r"\b", lower):
+                            score += pen
+                    scored_items.append((max(1, min(10, score)), clean_title))
+
+                scored_items.sort(key=lambda x: x[0], reverse=True)
+                lines = [f"Strategic News Feed for '{clean_topic}' (Prioritized 1-10):"]
+                for i, (score, t) in enumerate(scored_items[:max_items], 1):
+                    tag = "🚨 CRITICAL" if score >= 8 else ("📈 STRATEGIC" if score >= 6 else "ℹ️ NOTABLE")
+                    lines.append(f"  {i}. [{tag} | Score: {score}/10] {t}")
+                return "\n".join(lines)
+        except Exception as e:
+            return f"Error retrieving strategic news: {e}"
+
     def get_summary_snapshot(self) -> str:
         """Compact somatosensory snapshot string for injection into cognitive prompt."""
         t = self.get_hardware_telemetry()

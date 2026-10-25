@@ -212,3 +212,8 @@ def test_voice_api():
     assert res_stop.status_code == 200
     assert res_stop.json()["status"] == "SUCCESS"
 
+    # 5. Executive Briefing endpoints
+    res_brief = client.get("/api/voice/briefing")
+    assert res_brief.status_code == 200
+    assert "Soham" in res_brief.json()["briefing"]
+

@@ -3882,6 +3882,21 @@ async def toggle_voice(req: VoiceToggleRequest):
     voice_engine.enabled = req.enabled
     return {"status": "SUCCESS", "enabled": voice_engine.enabled}
 
+@app.get("/api/voice/briefing")
+async def get_briefing():
+    from cortex.embodiment.session_sentinel import ExecutiveBriefing
+    briefing = ExecutiveBriefing(username="Soham")
+    return {"status": "SUCCESS", "briefing": briefing.generate()}
+
+@app.post("/api/voice/briefing")
+async def deliver_briefing():
+    from cortex.embodiment.session_sentinel import ExecutiveBriefing
+    briefing = ExecutiveBriefing(username="Soham")
+    text = briefing.generate()
+    if voice_engine.enabled:
+        voice_engine.speak(text)
+    return {"status": "SUCCESS", "briefing": text, "spoken": voice_engine.enabled}
+
 
 # ==================== WEBSOCKET STREAMING ====================
 

@@ -10,10 +10,13 @@ import re
 import sys
 import time
 import threading
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional, Callable, Set
+import numpy as np
 
 import soundfile as sf
 import sounddevice as sd
+
+from cortex.embodiment.audio_dsp import SileroVAD, RealTimeNoiseSuppressor, PHANTOM_PHRASES
 
 class CortexVoiceEngine:
     """
@@ -207,22 +210,44 @@ class CortexVoiceEngine:
 
 class CortexVoiceListener:
     """
-    Hands-Free Continuous Whisper Listener with VAD and Barge-In detection.
+    Hands-Free Continuous Whisper Listener with Silero VAD,
+    Noise Suppression, Anti-Hallucination, and Sub-10ms Barge-In.
     """
+    SAMPLE_RATE = 16000
+    CHUNK_SAMPLES = 512  # 32ms at 16kHz for Silero VAD
+
     def __init__(
         self,
         on_speech_detected: Optional[Callable[[str], Any]] = None,
         on_interrupt_detected: Optional[Callable[[], Any]] = None,
+        on_speech_started: Optional[Callable[[], Any]] = None,
         model_size: str = "tiny.en",
-        device: str = "cpu"
+        device: str = "cpu",
+        wake_word: Optional[str] = None,
+        silence_duration: float = 0.50,
+        barge_in_threshold: float = 0.70
     ):
         self.on_speech_detected = on_speech_detected
         self.on_interrupt_detected = on_interrupt_detected
+        self.on_speech_started = on_speech_started
         self.model_size = model_size
         self.device = device
+        self.wake_word = wake_word.lower().strip() if wake_word else None
+        self.silence_duration = silence_duration
+        self.barge_in_threshold = barge_in_threshold
+
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._whisper_model = None
+
+        self.vad = SileroVAD(speech_threshold=0.50, barge_in_threshold=barge_in_threshold)
+        self.noise_suppressor = RealTimeNoiseSuppressor(sample_rate=self.SAMPLE_RATE)
+        self.phantom_phrases: Set[str] = PHANTOM_PHRASES
+
+    def is_phantom_phrase(self, text: str) -> bool:
+        """Checks if text matches silence hallucinations or phantom phrases."""
+        clean = text.lower().strip().rstrip(".!?")
+        return clean in self.phantom_phrases or len(clean) <= 1
 
     def start(self):
         if self._running:
@@ -243,7 +268,7 @@ class CortexVoiceListener:
             if self._whisper_model is None:
                 self._whisper_model = WhisperModel(self.model_size, device=self.device, compute_type="int8")
         except Exception:
-            return
+            self._whisper_model = None
 
         # Continuous listening loop with sounddevice
         # (Runs safely in background without blocking system threads)
