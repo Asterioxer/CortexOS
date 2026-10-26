@@ -1806,12 +1806,16 @@ HTML_DASHBOARD = r"""
 
                     <!-- Quick-Prompt Suggestion Chips -->
                     <div class="quick-chips">
-                        <div class="quick-chip" onclick="quickPrompt('tell me about my system')">🖥️ System Telemetry</div>
-                        <div class="quick-chip" onclick="quickPrompt('which applications are open')">📱 Open Applications</div>
-                        <div class="quick-chip" onclick="quickPrompt('which song is being played')">🎵 Active Song</div>
-                        <div class="quick-chip" onclick="quickPrompt('audit working tree')">🔍 Audit Git Tree</div>
-                        <div class="quick-chip" onclick="switchTab('execution')">⚙️ View Execution Pipeline</div>
-                        <div class="quick-chip" onclick="triggerSleep()">💤 Digital Sleep</div>
+                        <div class="quick-chip" onclick="quickPrompt('tell me about my system')">🖥️ Telemetry</div>
+                        <div class="quick-chip" onclick="quickPrompt('scan system')">🗺️ Cartography</div>
+                        <div class="quick-chip" onclick="quickPrompt('run self evolution')">🔄 Self-Evolution</div>
+                        <div class="quick-chip" onclick="quickPrompt('open project voice-lab')">📁 Voice Lab</div>
+                        <div class="quick-chip" onclick="quickPrompt('open project qwen3.6-setup-streaming')">📁 Qwen Stream</div>
+                        <div class="quick-chip" onclick="quickPrompt('open project HanuAI_Tasks')">📁 HanuAI</div>
+                        <div class="quick-chip" onclick="quickPrompt('open project blockchain')">📁 Blockchain</div>
+                        <div class="quick-chip" onclick="quickPrompt('open project stock-signal-predictor')">📁 Trading</div>
+                        <div class="quick-chip" onclick="quickPrompt('sync vault')">💾 Vault Sync</div>
+                        <div class="quick-chip" onclick="triggerSleep()">💤 Sleep</div>
                     </div>
 
                     <div class="chat-input-bar">
@@ -5140,7 +5144,7 @@ async def system_shutdown():
 
 @app.post("/api/system/trigger")
 async def system_trigger(req: Dict[str, Any]):
-    prompt = req.get("prompt", "")
+    prompt = req.get("prompt") or req.get("input") or req.get("text") or ""
     from cortex.vault.trigger_router import get_trigger_router
     router = get_trigger_router()
     match = router.match(prompt)
