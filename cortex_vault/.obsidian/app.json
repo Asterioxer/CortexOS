@@ -1,0 +1,15 @@
+{
+  "legacyEditor": false,
+  "livePreview": true,
+  "useTab": true,
+  "tabSize": 2,
+  "showLineNumber": true,
+  "spellcheck": false,
+  "readableLineLength": false,
+  "autoConvertHtml": true,
+  "foldHeading": true,
+  "foldIndent": true,
+  "attachmentFolderPath": "attachments",
+  "newFileLocation": "current",
+  "useMarkdownLinks": false
+}

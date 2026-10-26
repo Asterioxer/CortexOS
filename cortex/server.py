@@ -28,6 +28,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from cortex.main import build_cortex_stack
 from cortex.embodiment.voice import voice_engine
 from cortex.startup.service_manager import get_service_manager
+from cortex.vault.vault_manager import get_vault
+from cortex.vault.rag_engine import get_vault_rag
+from cortex.vault.git_sync import get_vault_sync
+from cortex.vault.copilot_pair import get_pair_copilot
 
 app = FastAPI(title="CortexOS Real-Time Cognitive Dashboard")
 app.add_middleware(
@@ -94,6 +98,18 @@ class AutostartToggleRequest(BaseModel):
     action: Optional[str] = "toggle"  # "enable", "disable", "toggle"
     host: Optional[str] = "0.0.0.0"
     port: Optional[int] = 8000
+
+class VaultNoteSaveRequest(BaseModel):
+    path: str
+    content: str
+    title: Optional[str] = None
+    frontmatter: Optional[Dict[str, Any]] = None
+
+class VaultSyncRequest(BaseModel):
+    remote_url: Optional[str] = None
+
+class VaultPairRequest(BaseModel):
+    prompt: str
 
 
 HTML_DASHBOARD = r"""
@@ -1549,6 +1565,159 @@ HTML_DASHBOARD = r"""
         }
         .proc-search-input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 10px rgba(0, 229, 255, 0.25); }
 
+        /* ==================== 7. OBSIDIAN KNOWLEDGE VAULT & RAG STYLES ==================== */
+        .vault-layout {
+            display: grid;
+            grid-template-columns: 290px 1fr 340px;
+            gap: 16px;
+            height: calc(100vh - 90px);
+            padding: 8px 0;
+            overflow: hidden;
+        }
+        .vault-sidebar-col, .vault-editor-col, .vault-rag-col {
+            background: var(--bg-card);
+            border: 1px solid var(--border-panel);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
+        }
+        .vault-col-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-panel);
+            background: rgba(13, 20, 36, 0.85);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .vault-search-box {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border-panel);
+            background: rgba(8, 12, 22, 0.6);
+        }
+        .vault-input {
+            width: 100%;
+            background: rgba(18, 28, 51, 0.85);
+            border: 1px solid var(--border-panel);
+            color: var(--text-main);
+            padding: 7px 10px;
+            border-radius: 6px;
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .vault-input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+        }
+        .vault-notes-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .vault-note-item {
+            padding: 9px 12px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.15s ease-in-out;
+            background: rgba(18, 28, 51, 0.4);
+        }
+        .vault-note-item:hover {
+            background: rgba(0, 229, 255, 0.1);
+            border-color: rgba(0, 229, 255, 0.3);
+        }
+        .vault-note-item.active {
+            background: linear-gradient(135deg, rgba(2, 132, 199, 0.4), rgba(0, 229, 255, 0.25));
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
+        }
+        .vault-note-title {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 2px;
+        }
+        .vault-note-meta {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+        }
+        .vault-editor-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 14px 16px;
+            overflow-y: auto;
+            gap: 12px;
+        }
+        .vault-markdown-area {
+            flex: 1;
+            width: 100%;
+            background: rgba(8, 12, 24, 0.85);
+            border: 1px solid var(--border-panel);
+            border-radius: 8px;
+            color: #d1d5db;
+            padding: 12px 14px;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+        }
+        .vault-markdown-area:focus {
+            border-color: var(--accent-cyan);
+        }
+        .vault-preview-area {
+            flex: 1;
+            background: rgba(8, 12, 24, 0.6);
+            border: 1px solid var(--border-panel);
+            border-radius: 8px;
+            padding: 14px 18px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            line-height: 1.65;
+            color: var(--text-main);
+        }
+        .wikilink-badge {
+            background: rgba(0, 229, 255, 0.15);
+            border: 1px solid rgba(0, 229, 255, 0.4);
+            color: var(--accent-cyan);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .wikilink-badge:hover {
+            background: rgba(0, 229, 255, 0.3);
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+        }
+        .vault-rag-card {
+            background: rgba(14, 23, 42, 0.75);
+            border: 1px solid var(--border-panel);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+        }
+        @media (max-width: 1200px) {
+            .vault-layout { grid-template-columns: 260px 1fr; }
+            .vault-rag-col { display: none; }
+        }
+        @media (max-width: 850px) {
+            .vault-layout { grid-template-columns: 1fr; }
+            .vault-sidebar-col { display: none; }
+        }
+
         /* Responsive Breakpoints */
         @media (max-width: 1080px) {
             .pipeline-stepper { grid-template-columns: repeat(2, 1fr); }
@@ -1645,9 +1814,13 @@ HTML_DASHBOARD = r"""
                 <span class="nav-label"><span class="icon">⚙️</span> Execution & Daemons</span>
                 <span class="kbd-hint">^6</span>
             </button>
+            <button class="nav-btn" id="tab-vault" onclick="switchTab('vault')">
+                <span class="nav-label"><span class="icon">📚</span> Knowledge Vault</span>
+                <span class="kbd-hint">^7</span>
+            </button>
         </aside>
 
-        <!-- Main Content Area with 6 Interchangeable Views -->
+        <!-- Main Content Area with 7 Interchangeable Views -->
         <div class="content-area">
             
             <!-- PANE 1: COGNITIVE STAGE (Active Interactive Chat + Real-Time Telemetry Inspector) -->
@@ -2207,6 +2380,112 @@ HTML_DASHBOARD = r"""
                 </div>
             </div>
 
+            <!-- PANE 7: OBSIDIAN KNOWLEDGE VAULT & RAG -->
+            <div id="pane-vault" class="pane-view" style="height:calc(100vh - 80px); overflow:hidden; padding: 10px 20px;">
+                <div class="vault-layout">
+                    <!-- Column 1: Explorer & Note Browser -->
+                    <div class="vault-sidebar-col">
+                        <div class="vault-col-header">
+                            <span style="font-family:var(--font-mono); font-size:0.84rem; font-weight:700; color:var(--accent-cyan); display:flex; align-items:center; gap:6px;">
+                                <span>📚</span> Obsidian Vault
+                            </span>
+                            <button class="btn-subtle" onclick="createNewVaultNote()" style="font-size:0.7rem; padding:3px 8px;">+ New Note</button>
+                        </div>
+                        <div class="vault-search-box">
+                            <input type="text" class="vault-input" id="vault-filter-input" placeholder="Filter notes..." oninput="filterVaultNotes(this.value)">
+                        </div>
+                        <div class="vault-notes-list" id="vault-notes-list">
+                            <div style="color:var(--text-dim); text-align:center; padding:20px; font-size:0.78rem;">Loading vault notes...</div>
+                        </div>
+                        <div style="padding:8px 12px; border-top:1px solid var(--border-panel); font-size:0.72rem; color:var(--text-dim); font-family:var(--font-mono); display:flex; justify-content:space-between;" id="vault-footer-stats">
+                            <span id="vault-notes-count">16 Notes</span>
+                            <span id="vault-words-count">2,737 Words</span>
+                        </div>
+                    </div>
+
+                    <!-- Column 2: Note Viewer & Editor -->
+                    <div class="vault-editor-col">
+                        <div class="vault-col-header">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span id="vault-editor-title" style="font-weight:700; color:#fff; font-size:0.9rem;">00_Index.md</span>
+                                <span class="badge" id="vault-editor-badge" style="background:rgba(0,229,255,0.15); color:var(--accent-cyan); font-size:0.68rem; padding:2px 6px; border-radius:4px;">READ ONLY</span>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <button class="btn-subtle" id="btn-vault-edit-toggle" onclick="toggleVaultEditMode()" style="font-size:0.72rem;">✏️ Edit</button>
+                                <button class="btn-subtle" id="btn-vault-save" onclick="saveCurrentVaultNote()" style="font-size:0.72rem; display:none; border-color:var(--accent-green); color:var(--accent-green);">💾 Save</button>
+                            </div>
+                        </div>
+                        <div class="vault-editor-body">
+                            <!-- Frontmatter / Meta Strip -->
+                            <div id="vault-note-frontmatter-strip" style="font-family:var(--font-mono); font-size:0.72rem; color:var(--text-dim); display:flex; gap:8px; flex-wrap:wrap; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.06);">
+                                <span>Tags: <span id="vault-note-tags" style="color:var(--accent-cyan)">#cortex/moc</span></span>
+                            </div>
+                            <!-- Live Preview Area -->
+                            <div class="vault-preview-area markdown-body" id="vault-preview-area">
+                                Select a note from the left to view its contents.
+                            </div>
+                            <!-- Raw Markdown Editor (hidden by default) -->
+                            <textarea class="vault-markdown-area" id="vault-raw-editor" style="display:none;"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Column 3: Anti-Hallucination RAG & Pair Copilot & Git Backup -->
+                    <div class="vault-rag-col" style="padding:14px; gap:14px; overflow-y:auto;">
+                        <!-- Widget 1: Anti-Hallucination RAG Search -->
+                        <div class="exec-card tilt-card" style="margin:0; padding:12px;">
+                            <div style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--accent-cyan); display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                                <span>🔍</span> Anti-Hallucination RAG Search
+                            </div>
+                            <div style="display:flex; gap:6px; margin-bottom:8px;">
+                                <input type="text" class="vault-input" id="vault-rag-query" placeholder="Query vault knowledge..." onkeydown="if(event.key==='Enter') executeVaultRAGSearch()">
+                                <button class="btn-subtle" onclick="executeVaultRAGSearch()" style="font-size:0.75rem; padding:6px 10px;">Search</button>
+                            </div>
+                            <div id="vault-rag-results" style="max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; font-size:0.75rem;">
+                                <div style="color:var(--text-dim); text-align:center; padding:10px;">Type a query to search grounded context.</div>
+                            </div>
+                        </div>
+
+                        <!-- Widget 2: Autonomous Pair Copilot Execution -->
+                        <div class="exec-card tilt-card" style="margin:0; padding:12px; border-color:rgba(0,229,255,0.35);">
+                            <div style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--accent-green); display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                                <span>👥</span> Autonomous Pair Copilot
+                            </div>
+                            <div style="font-size:0.72rem; color:var(--text-dim); margin-bottom:8px;">
+                                Ready to execute any system command, application launch, test run, or note capture in pair with you.
+                            </div>
+                            <div style="display:flex; gap:6px; margin-bottom:8px;">
+                                <input type="text" class="vault-input" id="vault-copilot-input" placeholder="e.g. open spotify, run tests, sync vault..." onkeydown="if(event.key==='Enter') executePairCopilot()">
+                                <button class="btn-subtle" onclick="executePairCopilot()" style="font-size:0.75rem; padding:6px 10px; border-color:var(--accent-green); color:var(--accent-green);">Do It</button>
+                            </div>
+                            <div id="vault-copilot-output" style="max-height:150px; overflow-y:auto; font-family:var(--font-mono); font-size:0.72rem; background:rgba(6,9,17,0.85); padding:8px; border-radius:6px; border:1px solid var(--border-panel); color:var(--accent-cyan); display:none;">
+                            </div>
+                        </div>
+
+                        <!-- Widget 3: Private Git Backup Sync -->
+                        <div class="exec-card tilt-card" style="margin:0; padding:12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <span style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+                                    <span>🔒</span> Private Backup Sync
+                                </span>
+                                <span class="daemon-badge daemon-running" id="vault-sync-badge">SYNCED</span>
+                            </div>
+                            <div style="font-size:0.72rem; color:var(--text-dim); margin-bottom:4px;">
+                                Last Commit: <span id="vault-last-commit" style="color:#fff;">Loading...</span>
+                            </div>
+                            <div style="font-size:0.72rem; color:var(--text-dim); margin-bottom:8px;">
+                                Last Sync: <span id="vault-last-sync-time" style="color:var(--accent-cyan);">Loading...</span>
+                            </div>
+                            <div style="margin-bottom:8px;">
+                                <input type="text" class="vault-input" id="vault-remote-input" placeholder="git@github.com:User/vault.git" style="font-size:0.72rem;">
+                            </div>
+                            <button class="btn-subtle" onclick="triggerVaultSync()" id="btn-vault-sync" style="width:100%; border-color:var(--accent-cyan); color:var(--accent-cyan); font-weight:700; font-size:0.75rem;">
+                                ⚡ Backup & Sync Vault
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -2314,7 +2593,7 @@ HTML_DASHBOARD = r"""
         // Tab Switching Router
         function switchTab(tabName) {
             activeTab = tabName;
-            const tabs = ['stage', 'memory', 'graph', 'skills', 'governance', 'execution'];
+            const tabs = ['stage', 'memory', 'graph', 'skills', 'governance', 'execution', 'vault'];
             tabs.forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
                 const pane = document.getElementById(`pane-${t}`);
@@ -2336,6 +2615,8 @@ HTML_DASHBOARD = r"""
                 loadGovernancePane();
             } else if (tabName === 'execution') {
                 loadExecutionPane();
+            } else if (tabName === 'vault') {
+                loadVaultPane();
             }
         }
 
@@ -4173,6 +4454,309 @@ HTML_DASHBOARD = r"""
             }
         }
 
+        // ==================== 7. OBSIDIAN KNOWLEDGE VAULT & RAG ====================
+        let currentVaultNotes = [];
+        let activeVaultNotePath = '00_Index.md';
+        let isVaultEditing = false;
+
+        async function loadVaultPane() {
+            try {
+                const [notesRes, statusRes] = await Promise.all([
+                    fetch('/api/vault/notes'),
+                    fetch('/api/vault/status')
+                ]);
+                currentVaultNotes = await notesRes.json();
+                const statusData = await statusRes.json();
+
+                renderVaultNotesList(currentVaultNotes);
+                updateVaultStats(statusData);
+
+                if (currentVaultNotes.length > 0) {
+                    const target = currentVaultNotes.find(n => n.rel_path === activeVaultNotePath) || currentVaultNotes[0];
+                    openVaultNote(target.rel_path);
+                }
+            } catch (e) {
+                console.error('Failed to load vault pane:', e);
+            }
+        }
+
+        function renderVaultNotesList(notes) {
+            const listEl = document.getElementById('vault-notes-list');
+            if (!listEl) return;
+            if (notes.length === 0) {
+                listEl.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:20px; font-size:0.78rem;">No notes matching filter.</div>';
+                return;
+            }
+
+            listEl.innerHTML = notes.map(n => {
+                const isActive = n.rel_path === activeVaultNotePath;
+                const cat = n.rel_path.includes('/') ? n.rel_path.split('/')[0] : 'root';
+                return `
+                    <div class="vault-note-item ${isActive ? 'active' : ''}" onclick="openVaultNote('${escapeHtml(n.rel_path)}')">
+                        <div class="vault-note-title">${escapeHtml(n.title)}</div>
+                        <div class="vault-note-meta">
+                            <span>${escapeHtml(cat)}</span>
+                            <span>${n.word_count}w</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterVaultNotes(q) {
+            const qLower = (q || '').toLowerCase();
+            const filtered = currentVaultNotes.filter(n =>
+                n.title.toLowerCase().includes(qLower) ||
+                n.rel_path.toLowerCase().includes(qLower) ||
+                (n.tags && n.tags.some(t => t.toLowerCase().includes(qLower)))
+            );
+            renderVaultNotesList(filtered);
+        }
+
+        async function openVaultNote(relPath) {
+            activeVaultNotePath = relPath;
+            isVaultEditing = false;
+            document.querySelectorAll('.vault-note-item').forEach(el => el.classList.remove('active'));
+
+            const editBtn = document.getElementById('btn-vault-edit-toggle');
+            const saveBtn = document.getElementById('btn-vault-save');
+            const badge = document.getElementById('vault-editor-badge');
+            const previewArea = document.getElementById('vault-preview-area');
+            const rawEditor = document.getElementById('vault-raw-editor');
+
+            if (editBtn) editBtn.innerText = '✏️ Edit';
+            if (saveBtn) saveBtn.style.display = 'none';
+            if (badge) { badge.innerText = 'READ ONLY'; badge.style.color = 'var(--accent-cyan)'; }
+            if (previewArea) previewArea.style.display = 'block';
+            if (rawEditor) rawEditor.style.display = 'none';
+
+            try {
+                const res = await fetch(`/api/vault/note?path=${encodeURIComponent(relPath)}`);
+                if (!res.ok) return;
+                const note = await res.json();
+
+                const titleEl = document.getElementById('vault-editor-title');
+                if (titleEl) titleEl.innerText = note.rel_path;
+
+                const tagsEl = document.getElementById('vault-note-tags');
+                if (tagsEl) {
+                    tagsEl.innerHTML = (note.tags || []).map(t => `<span style="background:rgba(0,229,255,0.1); padding:2px 5px; border-radius:3px; margin-right:4px;">#${escapeHtml(t)}</span>`).join('') || 'None';
+                }
+
+                if (rawEditor) rawEditor.value = note.raw_text;
+
+                if (previewArea) {
+                    let html = escapeHtml(note.content);
+                    html = html.replace(/^### (.*$)/gim, '<h3 style="color:var(--accent-cyan); font-size:0.95rem; margin:14px 0 6px;">$1</h3>');
+                    html = html.replace(/^## (.*$)/gim, '<h2 style="color:var(--accent-cyan); font-size:1.1rem; margin:18px 0 8px; border-bottom:1px solid rgba(0,229,255,0.2); padding-bottom:4px;">$1</h2>');
+                    html = html.replace(/^# (.*$)/gim, '<h1 style="color:#fff; font-size:1.3rem; margin:20px 0 10px;">$1</h1>');
+                    html = html.replace(/\[\[([^\]\|]+)(?:\|([^\]]+))?\]\]/g, (match, target, label) => {
+                        const display = label || target;
+                        return `<span class="wikilink-badge" onclick="openVaultNote('${escapeHtml(target.trim())}')">[[${escapeHtml(display.trim())}]]</span>`;
+                    });
+                    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+                    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+                    html = html.replace(/^[*-] (.*$)/gim, '<li style="margin-left:18px;">$1</li>');
+                    html = html.replace(/\n\n/g, '<br><br>');
+                    previewArea.innerHTML = html;
+                }
+
+                renderVaultNotesList(currentVaultNotes);
+            } catch (e) {
+                console.error('Failed to open vault note:', e);
+            }
+        }
+
+        function toggleVaultEditMode() {
+            isVaultEditing = !isVaultEditing;
+            const editBtn = document.getElementById('btn-vault-edit-toggle');
+            const saveBtn = document.getElementById('btn-vault-save');
+            const badge = document.getElementById('vault-editor-badge');
+            const previewArea = document.getElementById('vault-preview-area');
+            const rawEditor = document.getElementById('vault-raw-editor');
+
+            if (isVaultEditing) {
+                if (editBtn) editBtn.innerText = '👁️ Preview';
+                if (saveBtn) saveBtn.style.display = 'inline-block';
+                if (badge) { badge.innerText = 'EDITING'; badge.style.color = 'var(--accent-green)'; }
+                if (previewArea) previewArea.style.display = 'none';
+                if (rawEditor) {
+                    rawEditor.style.display = 'block';
+                    rawEditor.focus();
+                }
+            } else {
+                if (editBtn) editBtn.innerText = '✏️ Edit';
+                if (saveBtn) saveBtn.style.display = 'none';
+                if (badge) { badge.innerText = 'READ ONLY'; badge.style.color = 'var(--accent-cyan)'; }
+                if (previewArea) previewArea.style.display = 'block';
+                if (rawEditor) rawEditor.style.display = 'none';
+                openVaultNote(activeVaultNotePath);
+            }
+        }
+
+        async function saveCurrentVaultNote() {
+            const rawEditor = document.getElementById('vault-raw-editor');
+            if (!rawEditor) return;
+            const content = rawEditor.value;
+
+            try {
+                const res = await fetch('/api/vault/note', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: activeVaultNotePath,
+                        content: content
+                    })
+                });
+                await res.json();
+                toggleVaultEditMode();
+                await loadVaultPane();
+                openVaultNote(activeVaultNotePath);
+            } catch (e) {
+                alert('Failed to save note: ' + e);
+            }
+        }
+
+        function createNewVaultNote() {
+            const title = prompt('Enter new note title:');
+            if (!title) return;
+            const filename = title.replace(/[^a-zA-Z0-9_\-]+/g, '_').replace(/^_+|_+$/g, '') + '.md';
+            const category = prompt('Category folder (02_Pair_Programming, 03_Decisions_ADR, 01_Architecture):', '02_Pair_Programming') || '02_Pair_Programming';
+            const fullPath = `${category}/${filename}`;
+
+            activeVaultNotePath = fullPath;
+            isVaultEditing = true;
+
+            const titleEl = document.getElementById('vault-editor-title');
+            if (titleEl) titleEl.innerText = fullPath;
+            const editBtn = document.getElementById('btn-vault-edit-toggle');
+            const saveBtn = document.getElementById('btn-vault-save');
+            const badge = document.getElementById('vault-editor-badge');
+            const previewArea = document.getElementById('vault-preview-area');
+            const rawEditor = document.getElementById('vault-raw-editor');
+
+            if (editBtn) editBtn.innerText = '👁️ Preview';
+            if (saveBtn) saveBtn.style.display = 'inline-block';
+            if (badge) { badge.innerText = 'NEW NOTE'; badge.style.color = 'var(--accent-green)'; }
+            if (previewArea) previewArea.style.display = 'none';
+            if (rawEditor) {
+                rawEditor.style.display = 'block';
+                rawEditor.value = `# ${title}\n\nWrite your note content here...`;
+                rawEditor.focus();
+            }
+        }
+
+        function updateVaultStats(statusData) {
+            const v = statusData.vault || {};
+            const b = statusData.backup_git || {};
+
+            const notesCountEl = document.getElementById('vault-notes-count');
+            if (notesCountEl) notesCountEl.innerText = `${v.total_notes || 0} Notes`;
+
+            const wordsCountEl = document.getElementById('vault-words-count');
+            if (wordsCountEl) wordsCountEl.innerText = `${(v.total_words || 0).toLocaleString()} Words`;
+
+            const syncBadge = document.getElementById('vault-sync-badge');
+            if (syncBadge) {
+                syncBadge.innerText = b.status_label || 'STANDBY';
+                syncBadge.className = `daemon-badge ${b.status_label === 'SYNCED' ? 'daemon-running' : 'daemon-nominal'}`;
+            }
+
+            const commitEl = document.getElementById('vault-last-commit');
+            if (commitEl) commitEl.innerText = b.last_commit || 'None';
+
+            const syncTimeEl = document.getElementById('vault-last-sync-time');
+            if (syncTimeEl) syncTimeEl.innerText = b.last_sync || 'Never';
+
+            const remoteInput = document.getElementById('vault-remote-input');
+            if (remoteInput && b.remote_url) remoteInput.value = b.remote_url;
+        }
+
+        async function executeVaultRAGSearch() {
+            const input = document.getElementById('vault-rag-query');
+            const resultsBox = document.getElementById('vault-rag-results');
+            if (!input || !resultsBox) return;
+            const q = input.value.trim();
+            if (!q) return;
+
+            resultsBox.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:10px;">Searching vault...</div>';
+
+            try {
+                const res = await fetch(`/api/vault/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+
+                if (!data.results || data.results.length === 0) {
+                    resultsBox.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:10px;">No matching grounded knowledge.</div>';
+                    return;
+                }
+
+                resultsBox.innerHTML = data.results.map(r => `
+                    <div class="vault-rag-card" style="cursor:pointer;" onclick="openVaultNote('${escapeHtml(r.path)}')">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <span style="font-weight:700; color:var(--accent-cyan); font-size:0.76rem;">${escapeHtml(r.title)}</span>
+                            <span style="font-family:var(--font-mono); font-size:0.68rem; color:var(--accent-green);">${(r.score).toFixed(2)}</span>
+                        </div>
+                        <div style="font-size:0.72rem; color:var(--text-dim);">${escapeHtml(r.snippet)}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                resultsBox.innerHTML = `<div style="color:var(--accent-red); padding:10px;">Search failed: ${e}</div>`;
+            }
+        }
+
+        async function executePairCopilot() {
+            const input = document.getElementById('vault-copilot-input');
+            const outputBox = document.getElementById('vault-copilot-output');
+            if (!input || !outputBox) return;
+            const prompt = input.value.trim();
+            if (!prompt) return;
+
+            outputBox.style.display = 'block';
+            outputBox.innerHTML = '<span style="color:var(--accent-cyan);">🧠 Pair Copilot reasoning and executing...</span>';
+
+            try {
+                const res = await fetch('/api/vault/pair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+                const data = await res.json();
+                outputBox.innerHTML = `
+                    <div style="color:var(--accent-green); font-weight:700; margin-bottom:4px;">✓ ${escapeHtml(data.user_response)}</div>
+                    ${data.action_executed ? `<div style="color:var(--text-dim);">Action: ${escapeHtml(JSON.stringify(data.action_executed))}</div>` : ''}
+                    <div style="color:var(--text-dim); margin-top:4px;">Grounded: ${escapeHtml((data.grounded_sources || []).join(', ') || 'Vault Index')}</div>
+                `;
+                input.value = '';
+            } catch (e) {
+                outputBox.innerHTML = `<span style="color:var(--accent-red);">Execution failed: ${e}</span>`;
+            }
+        }
+
+        async function triggerVaultSync() {
+            const btn = document.getElementById('btn-vault-sync');
+            const remoteInput = document.getElementById('vault-remote-input');
+            const remoteUrl = remoteInput ? remoteInput.value.trim() : null;
+
+            if (btn) { btn.disabled = true; btn.innerText = 'Syncing...'; }
+
+            try {
+                const res = await fetch('/api/vault/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ remote_url: remoteUrl || null })
+                });
+                const data = await res.json();
+                const statusRes = await fetch('/api/vault/status');
+                const statusData = await statusRes.json();
+                updateVaultStats(statusData);
+                alert(data.message || 'Vault backup sync completed.');
+            } catch (e) {
+                alert('Sync failed: ' + e);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = '⚡ Backup & Sync Vault'; }
+            }
+        }
+
         // Keyboard Navigation Shortcuts
         window.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === '1') { e.preventDefault(); switchTab('stage'); }
@@ -4181,6 +4765,7 @@ HTML_DASHBOARD = r"""
             else if (e.ctrlKey && e.key === '4') { e.preventDefault(); switchTab('skills'); }
             else if (e.ctrlKey && e.key === '5') { e.preventDefault(); switchTab('governance'); }
             else if (e.ctrlKey && e.key === '6') { e.preventDefault(); switchTab('execution'); }
+            else if (e.ctrlKey && e.key === '7') { e.preventDefault(); switchTab('vault'); }
             else if (e.ctrlKey && e.key.toLowerCase() === 'b') { e.preventDefault(); toggleSidebar(); }
             else if (e.ctrlKey && e.key.toLowerCase() === 'k') {
                 e.preventDefault();
@@ -4699,6 +5284,93 @@ async def get_voice_audio(text: str = Query(...), persona: Optional[str] = Query
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Could not synthesize speech.")
     return Response(content=audio_bytes, media_type="audio/mpeg")
+
+
+# ==================== 7. OBSIDIAN KNOWLEDGE VAULT & RAG ENDPOINTS ====================
+
+@app.get("/api/vault/status")
+async def get_vault_status():
+    vault = get_vault()
+    sync = get_vault_sync()
+    return {
+        "vault": vault.get_stats(),
+        "backup_git": sync.status()
+    }
+
+@app.get("/api/vault/notes")
+async def get_vault_notes(category: Optional[str] = None, tag: Optional[str] = None):
+    vault = get_vault()
+    return vault.list_notes(category=category, tag=tag)
+
+@app.get("/api/vault/note")
+async def get_vault_note(path: str = Query(..., description="Relative path of the note")):
+    vault = get_vault()
+    note = vault.get_note(path)
+    if not note:
+        raise HTTPException(status_code=404, detail=f"Note '{path}' not found in vault.")
+    return {
+        "rel_path": note.rel_path,
+        "title": note.title,
+        "frontmatter": note.frontmatter,
+        "content": note.content,
+        "raw_text": note.raw_text,
+        "tags": note.tags,
+        "wikilinks": note.wikilinks,
+        "word_count": note.word_count,
+        "last_modified": note.last_modified
+    }
+
+@app.post("/api/vault/note")
+async def save_vault_note(req: VaultNoteSaveRequest):
+    vault = get_vault()
+    note = vault.save_note(
+        rel_path=req.path,
+        content=req.content,
+        frontmatter=req.frontmatter,
+        title=req.title
+    )
+    get_vault_rag()._build_index()
+    return {
+        "status": "SUCCESS",
+        "rel_path": note.rel_path,
+        "title": note.title,
+        "word_count": note.word_count
+    }
+
+@app.delete("/api/vault/note")
+async def delete_vault_note(path: str = Query(...)):
+    vault = get_vault()
+    ok = vault.delete_note(path)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Failed to delete note.")
+    get_vault_rag()._build_index()
+    return {"status": "SUCCESS", "message": f"Deleted note '{path}'."}
+
+@app.get("/api/vault/search")
+async def search_vault_rag(q: str = Query(...), category: Optional[str] = None, top_k: int = 4):
+    rag = get_vault_rag()
+    results = rag.search(query=q, top_k=top_k, category=category)
+    return {
+        "query": q,
+        "count": len(results),
+        "results": [r.to_dict() for r in results]
+    }
+
+@app.get("/api/vault/graph")
+async def get_vault_graph():
+    vault = get_vault()
+    return vault.get_graph_data()
+
+@app.post("/api/vault/sync")
+async def sync_vault(req: Optional[VaultSyncRequest] = None):
+    sync = get_vault_sync()
+    remote = req.remote_url if req else None
+    return sync.sync(remote_url=remote)
+
+@app.post("/api/vault/pair")
+async def pair_copilot_execute(req: VaultPairRequest):
+    copilot = get_pair_copilot()
+    return await copilot.execute_pair_request(req.prompt)
 
 
 # ==================== WEBSOCKET STREAMING ====================

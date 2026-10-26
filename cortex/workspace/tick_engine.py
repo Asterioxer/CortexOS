@@ -11,6 +11,7 @@ from cortex.embodiment.system_somatosensory import SystemSomatosensory
 from cortex.embodiment.stall_breaker import StallBreaker
 from cortex.embodiment.sentiment import CognitiveSentimentTracker
 from cortex.embodiment.voice import voice_engine, CortexVoiceEngine
+from cortex.vault.rag_engine import get_vault_rag
 
 TransitionTag = Literal["[THINK_MORE]", "[RESPONSE]", "[NO_OP]"]
 
@@ -219,9 +220,17 @@ class GWACognitiveTickEngine:
             stm=self.state.stm_buffer[-5:], external_input=external_input
         )
         rag_context = await self.memory.retrieve_hybrid_context(rag_queries)
-        
-        # Invariant State Injection: S_t = STM_t U INPUT_t U RAG_t U P_Self
-        global_state_prompt = self._compile_global_state(external_input, rag_context)
+
+        # Grounded Obsidian Vault RAG Injection (Anti-Hallucination)
+        try:
+            vault_rag = get_vault_rag()
+            vault_query = f"{external_input or ''} {' '.join(rag_queries[:2])}".strip()
+            vault_context = vault_rag.retrieve_grounded_context(query=vault_query, top_k=3)
+        except Exception:
+            vault_context = ""
+
+        # Invariant State Injection: S_t = STM_t U INPUT_t U RAG_t U VAULT_t U P_Self
+        global_state_prompt = self._compile_global_state(external_input, rag_context, vault_context)
 
         # Dual-Process Check: Try System 1 Fast Path first if input matches routine reflex
         sys1_decision = await self.llm.evaluate_system1_fastpath(global_state_prompt)
@@ -349,14 +358,16 @@ class GWACognitiveTickEngine:
             candidates=candidates
         )
 
-    def _compile_global_state(self, ext_input: Optional[str], rag_ctx: str) -> str:
+    def _compile_global_state(self, ext_input: Optional[str], rag_ctx: str, vault_ctx: str = "") -> str:
         blocks = self.wm.compile()
         stm_text = "\n".join(self.state.stm_buffer[-10:])
         somato_str = self.somato.get_summary_snapshot()
+        vault_sec = f"\n{vault_ctx}\n" if vault_ctx else ""
         return (
             f"<core_self>\n{self.state.p_self}\n</core_self>\n"
             f"<memory_blocks>\n{blocks}\n</memory_blocks>\n"
-            f"<retrieved_ltm>\n{rag_ctx}\n</retrieved_ltm>\n"
+            f"<retrieved_ltm>\n{rag_ctx}\n</retrieved_ltm>"
+            f"{vault_sec}"
             f"<working_stage_stm>\n{stm_text}\n</working_stage_stm>\n"
             f"<hardware_somatosensory>\n{somato_str}\n</hardware_somatosensory>\n"
             f"<current_perception>\n{ext_input or 'Internal heartbeat wake-up.'}\n</current_perception>"
@@ -507,6 +518,25 @@ class GWACognitiveTickEngine:
             elif action_type == "file_read":
                 res = self.somato.read_file_content(resource)
                 return {"action": "file_read", "path": resource, "preview": res.get("content", "")[:500], "total_lines": res.get("total_lines", 0), "status": res.get("status", "SUCCESS")}, None
+
+            elif action_type == "vault_search":
+                q = action.get("query") or resource or ""
+                results = get_vault_rag().search(q, top_k=action.get("top_k", 3))
+                return {"action": "vault_search", "query": q, "results": [r.to_dict() for r in results], "status": "SUCCESS"}, None
+
+            elif action_type == "vault_sync":
+                from cortex.vault.git_sync import get_vault_sync
+                rem = action.get("remote_url")
+                sync_res = get_vault_sync().sync(remote_url=rem)
+                return {"action": "vault_sync", "result": sync_res, "status": "SUCCESS"}, None
+
+            elif action_type == "vault_add_note":
+                from cortex.vault.vault_manager import get_vault
+                p = action.get("path") or f"02_Pair_Programming/{action.get('title', 'note').replace(' ', '_')}.md"
+                cnt = action.get("content", "")
+                t = action.get("title")
+                note = get_vault().save_note(p, cnt, title=t)
+                return {"action": "vault_add_note", "path": note.rel_path, "status": "SUCCESS"}, None
 
             elif self.skills:
                 skill_res = await self.skills.execute_or_synthesize(action)
