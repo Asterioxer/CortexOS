@@ -36,13 +36,18 @@ Welcome to the **CortexOS Ground-Truth Knowledge Substrate**. This vault serves 
 
 ### 4. [[04_Skills_Catalog/Skills_Registry|Skills & Procedures]]
 - [[04_Skills_Catalog/Skills_Registry|Autopoietic Procedural Skills Registry]]
+- [[04_Skills_Catalog/Trigger_Registry|Deterministic Grounded Trigger Registry]]
 
 ### 5. [[05_System_State/Hardware_Topology|System State & Ground-Truth Cartography]]
 - [[05_System_State/Hardware_Topology|Host Hardware Topology & Substrate (CPU, Dual GPUs, RAM, Disks)]]
+- [[05_System_State/Audio_and_Voice_Topology|Host Audio Architecture & Neural Voice Topology]]
+- [[05_System_State/Display_and_Graphics_Topology|Display Substrate & Dual-GPU Graphics Topology]]
 - [[05_System_State/OS_and_Kernel_Environment|Operating System, Kernel Environment & Shell Runtimes]]
 - [[05_System_State/Toolchains_and_Compilers|Installed Developer Toolchains & Compilers (Python, Node, Go, Docker, etc.)]]
 - [[05_System_State/Network_and_Interfaces|Network Adapters & LAN Universal Interfaces]]
+- [[05_System_State/System_Services_and_Startup|Cross-Platform System Services & Daemon Autostart]]
 - [[05_System_State/Filesystem_and_Workspaces|Operator Workspaces & Project Filesystem Map (48 Desktop Projects)]]
+- [[05_System_State/Operator_Profile_and_Habits|Operator Profile, Habitual Workflows & Tool Ergonomics]]
 - [[05_System_State/System_Telemetry|Live Hardware Posture & Telemetry]]
 
 ### 6. [[06_Self_Evolution/Autonomous_Evolution_Architecture|Self-Evolution & Autonomy Engine]]
@@ -50,6 +55,7 @@ Welcome to the **CortexOS Ground-Truth Knowledge Substrate**. This vault serves 
 - [[06_Self_Evolution/Introspection_Ledger|Autonomous Introspection & Evolution Ledger]]
 - [[06_Self_Evolution/Heuristic_Adaptation_Matrix|Heuristic Adaptation Matrix & Dynamic Arbitration Parameters]]
 - [[06_Self_Evolution/Skill_Synthesis_Engine|Autopoietic Skill Synthesis Engine]]
+- [[06_Self_Evolution/Deterministic_Trigger_Matrix|Deterministic Trigger & Action Execution Matrix]]
 - [[06_Self_Evolution/Autonomy_Boundaries_and_Escalation|Autonomy Boundaries, Cedar Policies & Escalation Matrix]]
 
 ---

@@ -489,6 +489,13 @@ HTML_DASHBOARD = r"""
             height: 100%;
             overflow: hidden;
         }
+
+        /* PANE 7: Obsidian Knowledge Vault */
+        #pane-vault.active {
+            display: block !important;
+            height: 100%;
+            overflow: hidden;
+        }
         section.chat-center {
             display: flex;
             flex-direction: column;
@@ -662,10 +669,11 @@ HTML_DASHBOARD = r"""
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 26px 0;
+            padding: 8px 20px 4px 20px;
             overflow-x: auto;
-            scrollbar-width: none;
-            background: rgba(10, 15, 29, 0.9);
+            flex-wrap: wrap;
+            background: rgba(10, 15, 29, 0.95);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
         .quick-chip {
             background: rgba(18, 28, 51, 0.8);
@@ -1785,6 +1793,7 @@ HTML_DASHBOARD = r"""
             </div>
             <button class="btn-ambient" id="btn-ambient" onclick="toggleAmbient()">AMBIENT: OFF</button>
             <button class="btn-sleep" onclick="triggerSleep()">DIGITAL SLEEP</button>
+            <button class="btn-panic" id="btn-standdown" onclick="triggerSystemShutdown()" style="background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.5); color:var(--accent-red);" title="Consolidate memory and stand down CortexOS">🛑 STAND DOWN</button>
             <button class="btn-panic" id="btn-panic" onclick="togglePanicKillswitch()">🚨 PANIC STOP</button>
         </div>
     </header>
@@ -2550,7 +2559,11 @@ HTML_DASHBOARD = r"""
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    if (data.type === 'state_update') {
+                    if (data.type === 'cortex_greeting') {
+                        renderCortexGreeting(data);
+                    } else if (data.type === 'cortex_shutdown') {
+                        renderCortexShutdown(data);
+                    } else if (data.type === 'state_update') {
                         updateTelemetry(data.state);
                     } else if (data.type === 'cortex_response') {
                         removeThinkingIndicator();
@@ -3294,6 +3307,75 @@ HTML_DASHBOARD = r"""
                 btn.style.color = '#10b981';
                 setTimeout(() => { btn.innerText = '📋 Copy'; btn.style.color = 'var(--accent-cyan)'; }, 2000);
             });
+        }
+
+        let hasSpokenGreeting = false;
+
+        function renderCortexGreeting(data) {
+            const container = document.getElementById('chat-messages');
+            if (!container) return;
+            if (hasSpokenGreeting) return;
+            hasSpokenGreeting = true;
+
+            const div = document.createElement('div');
+            div.className = 'message-bubble msg-cortex';
+            div.style.borderLeft = '3px solid var(--accent-cyan)';
+            div.innerHTML = `
+                <div style="font-size:0.75rem; font-family:var(--font-mono); color:var(--accent-cyan); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                    <span>👋</span> <strong>OPERATOR SESSION INITIALIZED // CORTEX-OS</strong>
+                </div>
+                <div>${formatMarkdown(data.greeting || data.response || '')}</div>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                    <button class="btn-voice-bubble" onclick="playVoiceAudio(this)" data-text="${encodeURIComponent(data.greeting || data.response || '')}" data-persona="${data.persona || 'jarvis'}">
+                        <span>🔊</span> Replay Voice
+                    </button>
+                </div>
+            `;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+
+            if (data.speak && voiceSpeechEnabled) {
+                playVoiceAudioForText(data.greeting || data.response || '', data.persona || 'jarvis');
+            }
+        }
+
+        function triggerSystemGreeting() {
+            fetch('/api/system/greet', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    hasSpokenGreeting = false;
+                    renderCortexGreeting({ greeting: data.response, speak: true, persona: data.persona });
+                });
+        }
+
+        async function triggerSystemShutdown() {
+            if (!confirm('Are you sure you want to stand down CortexOS? Working memory and context will be committed to your Obsidian Vault backup.')) return;
+            try {
+                const res = await fetch('/api/system/shutdown', { method: 'POST' });
+                const data = await res.json();
+                renderCortexShutdown(data);
+            } catch (e) {
+                alert('Shutdown error: ' + e);
+            }
+        }
+
+        function renderCortexShutdown(data) {
+            const container = document.getElementById('chat-messages');
+            if (container) {
+                const div = document.createElement('div');
+                div.className = 'message-bubble msg-cortex';
+                div.style.borderLeft = '3px solid var(--accent-red)';
+                div.innerHTML = `
+                    <div style="font-size:0.75rem; font-family:var(--font-mono); color:var(--accent-red); margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                        <span>🛑</span> <strong>SYSTEM STAND DOWN // VAULT BACKUP COMMITTED</strong>
+                    </div>
+                    <div>${formatMarkdown(data.response || 'CortexOS is safely standing down.')}</div>
+                `;
+                container.appendChild(div);
+                container.scrollTop = container.scrollHeight;
+            }
+            playVoiceAudioForText(data.response || 'Goodbye Soham. CortexOS is standing down.', 'jarvis');
+            setConnectionStatus('STANDBY', 'offline');
         }
 
         function renderCortexResponse(data) {
@@ -5208,6 +5290,26 @@ async def get_system_network():
     port = int(os.environ.get("CORTEX_PORT", "8000"))
     return mgr.get_network_info(port=port)
 
+@app.post("/api/system/greet")
+async def system_greet():
+    from cortex.vault.trigger_router import get_trigger_router
+    return get_trigger_router().get_greeting()
+
+@app.post("/api/system/shutdown")
+async def system_shutdown():
+    from cortex.vault.trigger_router import get_trigger_router
+    return get_trigger_router().get_shutdown()
+
+@app.post("/api/system/trigger")
+async def system_trigger(req: Dict[str, Any]):
+    prompt = req.get("prompt", "")
+    from cortex.vault.trigger_router import get_trigger_router
+    router = get_trigger_router()
+    match = router.match(prompt)
+    if match:
+        return await router.execute(match)
+    return {"status": "NO_MATCH", "prompt": prompt}
+
 @app.get("/api/execution/processes")
 async def get_processes_telemetry():
     proc = psutil.Process(os.getpid())
@@ -5507,6 +5609,17 @@ async def websocket_endpoint(websocket: WebSocket):
         }
     })
 
+    # Grounded Session Greeting
+    from cortex.vault.trigger_router import get_trigger_router
+    router = get_trigger_router()
+    greet_data = router.get_greeting()
+    await websocket.send_json({
+        "type": "cortex_greeting",
+        "greeting": greet_data["response"],
+        "speak": voice_engine.enabled,
+        "persona": greet_data.get("persona", "jarvis")
+    })
+
     last_pending_prompt: Optional[str] = None
 
     try:
@@ -5518,7 +5631,32 @@ async def websocket_endpoint(websocket: WebSocket):
             if msg_type == "user_message":
                 user_prompt = data.get("content", "")
                 last_pending_prompt = user_prompt
-                # Execute Cognitive Tick
+
+                # 1. Deterministic Grounded Trigger Router (Instant & Unhallucinated)
+                trigger_match = router.match(user_prompt)
+                if trigger_match:
+                    exec_res = await router.execute(trigger_match)
+                    await websocket.send_json({
+                        "type": "cortex_response",
+                        "response": exec_res["response"],
+                        "speak": voice_engine.enabled and exec_res.get("speak", True),
+                        "persona": exec_res.get("persona", voice_engine.active_persona),
+                        "deterministic_trigger": trigger_match.trigger_type,
+                        "grounded_doc": exec_res.get("grounded_doc"),
+                        "candidates": [
+                            {"perspective": "Deterministic Router", "thought_text": f"Matched grounded rule [[{trigger_match.grounded_doc}]].", "score": 10}
+                        ],
+                        "action_result": exec_res,
+                        "state": {
+                            "tick_id": engine.state.tick_id,
+                            "entropy": 0.0,
+                            "temperature": 0.2,
+                            "blocks": {k: {"value": b.value} for k, b in wm.blocks.items()}
+                        }
+                    })
+                    continue
+
+                # 2. General Tri-Perspective Cognitive Tick Loop
                 result = await engine.run_cognitive_tick(external_input=user_prompt)
 
                 if result.hold_card:

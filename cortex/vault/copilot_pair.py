@@ -42,6 +42,28 @@ class PairCopilot:
         prompt_clean = prompt.strip()
         p_lower = prompt_clean.lower()
 
+        # 0. Deterministic Grounded Trigger Router (Instant, Rule-Based, Anti-Hallucination)
+        from cortex.vault.trigger_router import get_trigger_router
+        router = get_trigger_router()
+        trigger_match = router.match(prompt_clean)
+        if trigger_match:
+            exec_res = await router.execute(trigger_match)
+            self.vault.update_active_context(
+                active_goal=f"Trigger: {trigger_match.trigger_type}",
+                details={
+                    "Prompt": prompt_clean,
+                    "Action Dispatched": trigger_match.action_name,
+                    "Grounded Source": trigger_match.grounded_doc
+                }
+            )
+            return {
+                "prompt": prompt_clean,
+                "action_executed": {"type": trigger_match.action_name, "trigger_type": trigger_match.trigger_type, "params": trigger_match.parameters},
+                "action_result": exec_res,
+                "user_response": exec_res["response"],
+                "grounded_sources": [trigger_match.grounded_doc]
+            }
+
         # 1. Retrieve grounded context from vault
         grounded_sources = self.rag.search(prompt_clean, top_k=3)
         sources_summary = [f"{s.rel_path}#{s.header}" for s in grounded_sources]

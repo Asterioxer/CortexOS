@@ -9,11 +9,11 @@ last_updated: '2026-10-26'
 
 # 📍 Active Living Context
 
-## Current Milestone: Pairing: scan machine hardware and toolchains
-- **Timestamp**: 2026-10-26 19:13:52
-- **Last Query**: scan machine hardware and toolchains
-- **Action Dispatched**: system_cartography
-- **Grounded Sources**: 01_Architecture/Embodiment_Somatosensory.md#🦾 Embodiment & Hardware Somatosensory, 01_Architecture/Embodiment_Somatosensory.md#1. Hardware Somatosensory (`SystemSomatosensory`), 05_System_State/Hardware_Topology.md#🖥️ Host Hardware Topology & Substrate
+## Current Milestone: Trigger: HARDWARE_TELEMETRY
+- **Timestamp**: 2026-10-26 19:32:58
+- **Prompt**: telemetry
+- **Action Dispatched**: get_telemetry
+- **Grounded Source**: 05_System_State/Hardware_Topology.md
 
 
 ## Live Memory Substrate
