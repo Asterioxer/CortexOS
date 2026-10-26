@@ -305,15 +305,200 @@ class SystemSomatosensory:
             return {"status": "ERROR", "error": str(e)}
 
     def launch_application(self, app_name: str) -> Dict[str, Any]:
-        """Launches a desktop application or shell target."""
+        """Launches a desktop application, UWP target, or shell program with intelligent path resolution and os.startfile."""
+        clean = app_name.lower().strip()
+        user_home = self.user_home
+        
+        known_apps: Dict[str, List[Any]] = {
+            "chrome": [
+                r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+                r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+                user_home / r"AppData\Local\Google\Chrome\Application\chrome.exe",
+                "chrome.exe",
+                "chrome"
+            ],
+            "brave": [
+                user_home / r"AppData\Local\BraveSoftware\Brave-Browser\Application\brave.exe",
+                r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+                r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
+                "brave.exe",
+                "brave"
+            ],
+            "code": [
+                user_home / r"AppData\Local\Programs\Microsoft VS Code\Code.exe",
+                r"C:\Program Files\Microsoft VS Code\Code.exe",
+                r"C:\Program Files (x86)\Microsoft VS Code\Code.exe",
+                "Code.exe",
+                "code"
+            ],
+            "vscode": [
+                user_home / r"AppData\Local\Programs\Microsoft VS Code\Code.exe",
+                r"C:\Program Files\Microsoft VS Code\Code.exe",
+                "Code.exe",
+                "code"
+            ],
+            "vs code": [
+                user_home / r"AppData\Local\Programs\Microsoft VS Code\Code.exe",
+                r"C:\Program Files\Microsoft VS Code\Code.exe",
+                "Code.exe",
+                "code"
+            ],
+            "notepad": [
+                r"C:\Windows\System32\notepad.exe",
+                "notepad.exe",
+                "notepad"
+            ],
+            "calc": [
+                r"C:\Windows\System32\calc.exe",
+                "calc.exe",
+                "ms-calculator:",
+                "calc"
+            ],
+            "calculator": [
+                r"C:\Windows\System32\calc.exe",
+                "calc.exe",
+                "ms-calculator:",
+                "calc"
+            ],
+            "explorer": [
+                r"C:\Windows\explorer.exe",
+                "explorer.exe",
+                "explorer"
+            ],
+            "files": [
+                r"C:\Windows\explorer.exe",
+                "explorer.exe"
+            ],
+            "file explorer": [
+                r"C:\Windows\explorer.exe",
+                "explorer.exe"
+            ],
+            "spotify": [
+                user_home / r"AppData\Roaming\Spotify\Spotify.exe",
+                user_home / r"AppData\Local\Microsoft\WindowsApps\Spotify.exe",
+                "spotify:",
+                "spotify.exe",
+                "spotify"
+            ],
+            "edge": [
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+                "msedge.exe",
+                "msedge"
+            ],
+            "msedge": [
+                r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+                r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+                "msedge.exe"
+            ],
+            "taskmgr": [
+                r"C:\Windows\System32\Taskmgr.exe",
+                "taskmgr.exe"
+            ],
+            "task manager": [
+                r"C:\Windows\System32\Taskmgr.exe",
+                "taskmgr.exe"
+            ],
+            "settings": [
+                "ms-settings:"
+            ],
+            "windows settings": [
+                "ms-settings:"
+            ],
+            "paint": [
+                r"C:\Windows\System32\mspaint.exe",
+                "mspaint.exe"
+            ],
+            "control": [
+                r"C:\Windows\System32\control.exe",
+                "control.exe"
+            ],
+            "control panel": [
+                r"C:\Windows\System32\control.exe",
+                "control.exe"
+            ],
+            "terminal": [
+                "wt.exe",
+                r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+                "powershell.exe"
+            ],
+            "powershell": [
+                r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe",
+                "powershell.exe"
+            ],
+            "cmd": [
+                r"C:\Windows\System32\cmd.exe",
+                "cmd.exe"
+            ],
+            "docker": [
+                r"C:\Program Files\Docker\Docker\Docker Desktop.exe",
+                "Docker Desktop.exe"
+            ]
+        }
+
+        # Resolve candidate targets
+        target_candidates = known_apps.get(clean, [])
+        if not target_candidates:
+            alias = clean.replace("google ", "").replace("browser", "").replace("the ", "").replace("app", "").strip()
+            target_candidates = known_apps.get(alias, [clean])
+
+        for candidate in target_candidates:
+            cand_str = str(candidate)
+            # 1. Existing full path on disk
+            if os.path.exists(cand_str):
+                try:
+                    os.startfile(cand_str)
+                    return {
+                        "status": "SUCCESS",
+                        "application": app_name,
+                        "resolved_path": cand_str,
+                        "message": f"Application '{app_name}' successfully launched from '{cand_str}'."
+                    }
+                except Exception:
+                    pass
+
+            # 2. UWP Protocol (ms-settings:, spotify:, etc.)
+            if cand_str.endswith(":"):
+                try:
+                    os.startfile(cand_str)
+                    return {
+                        "status": "SUCCESS",
+                        "application": app_name,
+                        "resolved_path": cand_str,
+                        "message": f"Application '{app_name}' launched via protocol '{cand_str}'."
+                    }
+                except Exception:
+                    pass
+
+        # 3. Direct os.startfile on system executable name or clean string
         try:
-            cmd = ["cmd.exe", "/c", "start", app_name]
-            proc = subprocess.Popen(cmd, cwd=str(self.workspace_dir))
+            os.startfile(clean if clean.endswith(".exe") else f"{clean}.exe")
+            return {
+                "status": "SUCCESS",
+                "application": app_name,
+                "message": f"Application '{app_name}' successfully launched."
+            }
+        except Exception:
+            pass
+
+        try:
+            os.startfile(clean)
+            return {
+                "status": "SUCCESS",
+                "application": app_name,
+                "message": f"Application '{app_name}' launched."
+            }
+        except Exception:
+            pass
+
+        # 4. Fallback: cmd.exe /c start "" "<target>"
+        try:
+            proc = subprocess.Popen(["cmd.exe", "/c", "start", "", clean], shell=True)
             return {
                 "status": "SUCCESS",
                 "pid": proc.pid,
                 "application": app_name,
-                "message": f"Application '{app_name}' launched."
+                "message": f"Application '{app_name}' dispatched via Windows shell."
             }
         except Exception as e:
             return {"status": "ERROR", "error": str(e)}

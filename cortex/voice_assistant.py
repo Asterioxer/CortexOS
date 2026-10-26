@@ -131,9 +131,19 @@ class CortexVoiceAssistant:
 
         # System 1 Somatosensory Reflex check
         reflex = self.llm.evaluate_system1_fastpath(clean_text)
-        if reflex:
-            action = reflex.get("action")
-            res_val = reflex.get("resource")
+        if reflex and reflex.get("action"):
+            act_obj = reflex.get("action")
+            if isinstance(act_obj, dict):
+                action = act_obj.get("action")
+                res_val = act_obj.get("resource") or act_obj.get("application") or act_obj.get("target")
+                cmd = act_obj.get("command") or reflex.get("command", "pause")
+                level = act_obj.get("level") or reflex.get("level", 50)
+            else:
+                action = act_obj
+                res_val = reflex.get("resource")
+                cmd = reflex.get("command", "pause")
+                level = reflex.get("level", 50)
+
             print(f"  [System 1 Reflex: {action}({res_val})]")
 
             reply = ""
@@ -141,19 +151,18 @@ class CortexVoiceAssistant:
                 r = self.somato.launch_terminal()
                 reply = "Opening a new PowerShell terminal for you."
             elif action == "media_control":
-                cmd = reflex.get("command", "pause")
                 r = self.somato.media_control(cmd)
                 reply = f"Media playback command {cmd} dispatched."
             elif action == "set_volume":
-                level = reflex.get("level", 50)
                 r = self.somato.set_volume(level)
                 reply = f"Audio volume set to {level} percent."
             elif action == "toggle_mute":
                 r = self.somato.toggle_mute()
                 reply = "Master audio mute toggled."
-            elif action == "open_application":
+            elif action in ["open_application", "launch_application"]:
                 r = self.somato.launch_application(str(res_val))
-                reply = f"Opening {res_val} on your desktop."
+                app_name = r.get("application") or res_val
+                reply = f"Opening {app_name} on your desktop."
             elif action == "close_application":
                 r = self.somato.close_application(str(res_val))
                 reply = f"Closing {res_val}."

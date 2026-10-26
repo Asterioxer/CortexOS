@@ -2755,6 +2755,7 @@ HTML_DASHBOARD = r"""
         let thinkingStepsInterval = null;
 
         function sendMessage() {
+            stopCurrentVoiceAudio();
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
             if (!text) return;
@@ -2913,6 +2914,7 @@ HTML_DASHBOARD = r"""
 
             // Auto-speak response if voice speech is active
             if (voiceSpeechEnabled && data.response && data.speak !== false) {
+                stopCurrentVoiceAudio();
                 playVoiceAudioForText(data.response, data.persona);
             }
         }
@@ -3584,8 +3586,10 @@ HTML_DASHBOARD = r"""
         let isVoiceSpeaking = false;
         let recognition = null;
         let isRecognizing = false;
+        let activeSpeechEpoch = 0; // Monotonic mutex counter preventing overlapping voice output
 
         function stopCurrentVoiceAudio() {
+            activeSpeechEpoch++;
             if (currentPlayingAudio) {
                 try {
                     currentPlayingAudio.onplay = null;
@@ -3593,6 +3597,8 @@ HTML_DASHBOARD = r"""
                     currentPlayingAudio.onerror = null;
                     currentPlayingAudio.pause();
                     currentPlayingAudio.currentTime = 0;
+                    currentPlayingAudio.src = '';
+                    currentPlayingAudio.load();
                 } catch (e) {}
                 currentPlayingAudio = null;
             }
@@ -3625,6 +3631,7 @@ HTML_DASHBOARD = r"""
             if (!clean) return;
 
             stopCurrentVoiceAudio();
+            const thisEpoch = activeSpeechEpoch;
 
             const targetPersona = persona || document.getElementById('voice-persona-select')?.value || 'jarvis';
             const audioUrl = `/api/voice/audio?text=${encodeURIComponent(clean)}&persona=${encodeURIComponent(targetPersona)}`;
@@ -3637,16 +3644,18 @@ HTML_DASHBOARD = r"""
             const triggerFallback = () => {
                 if (fallbackTriggered) return;
                 fallbackTriggered = true;
+                if (activeSpeechEpoch !== thisEpoch) return;
                 if (currentPlayingAudio) {
                     try {
                         currentPlayingAudio.onplay = null;
                         currentPlayingAudio.onended = null;
                         currentPlayingAudio.onerror = null;
                         currentPlayingAudio.pause();
+                        currentPlayingAudio.src = '';
                     } catch (e) {}
                     currentPlayingAudio = null;
                 }
-                speakWebSpeechSynthesis(clean, targetPersona);
+                speakWebSpeechSynthesis(clean, targetPersona, thisEpoch);
             };
 
             try {
@@ -3654,14 +3663,20 @@ HTML_DASHBOARD = r"""
                 currentPlayingAudio = audio;
 
                 audio.onplay = () => {
+                    if (activeSpeechEpoch !== thisEpoch) {
+                        try { audio.pause(); audio.src = ''; } catch (e) {}
+                        return;
+                    }
                     isVoiceSpeaking = true;
                     if (icon) icon.innerText = '🗣️';
                 };
                 audio.onended = () => {
-                    stopCurrentVoiceAudio();
+                    if (activeSpeechEpoch === thisEpoch) {
+                        stopCurrentVoiceAudio();
+                    }
                 };
                 audio.onerror = () => {
-                    if (currentPlayingAudio === audio) {
+                    if (activeSpeechEpoch === thisEpoch) {
                         triggerFallback();
                     }
                 };
@@ -3670,17 +3685,20 @@ HTML_DASHBOARD = r"""
                 if (playPromise !== undefined) {
                     playPromise.catch((err) => {
                         console.warn('Audio play failed, falling back to Web Speech:', err);
-                        if (currentPlayingAudio === audio) {
+                        if (activeSpeechEpoch === thisEpoch) {
                             triggerFallback();
                         }
                     });
                 }
             } catch (err) {
-                triggerFallback();
+                if (activeSpeechEpoch === thisEpoch) {
+                    triggerFallback();
+                }
             }
         }
 
-        function speakWebSpeechSynthesis(cleanText, persona) {
+        function speakWebSpeechSynthesis(cleanText, persona, epoch) {
+            if (epoch !== undefined && activeSpeechEpoch !== epoch) return;
             if (!window.speechSynthesis) {
                 stopCurrentVoiceAudio();
                 return;
@@ -3712,21 +3730,30 @@ HTML_DASHBOARD = r"""
             if (selectedVoice) utter.voice = selectedVoice;
 
             utter.onstart = () => {
+                if (epoch !== undefined && activeSpeechEpoch !== epoch) {
+                    try { window.speechSynthesis.cancel(); } catch (e) {}
+                    return;
+                }
                 isVoiceSpeaking = true;
                 const icon = document.getElementById('voice-status-icon');
                 if (icon) icon.innerText = '🗣️';
             };
             utter.onend = () => {
-                stopCurrentVoiceAudio();
+                if (epoch === undefined || activeSpeechEpoch === epoch) {
+                    stopCurrentVoiceAudio();
+                }
             };
             utter.onerror = () => {
-                stopCurrentVoiceAudio();
+                if (epoch === undefined || activeSpeechEpoch === epoch) {
+                    stopCurrentVoiceAudio();
+                }
             };
 
             window.speechSynthesis.speak(utter);
         }
 
         function playVoiceAudio(btn) {
+            stopCurrentVoiceAudio();
             const rawText = decodeURIComponent(btn.getAttribute('data-text') || '');
             const persona = btn.getAttribute('data-persona') || '';
             playVoiceAudioForText(rawText, persona);
@@ -3734,6 +3761,7 @@ HTML_DASHBOARD = r"""
 
         function playPerspectiveVoice(perspective, thoughtText, event) {
             if (event) event.stopPropagation();
+            stopCurrentVoiceAudio();
             let persona = 'jarvis';
             const pLower = perspective.toLowerCase();
             if (pLower.includes('analytic')) persona = 'edith';
@@ -3820,6 +3848,7 @@ HTML_DASHBOARD = r"""
         }
 
         async function switchVoicePersona(persona) {
+            stopCurrentVoiceAudio();
             try {
                 const res = await fetch('/api/voice/persona', {
                     method: 'POST',
@@ -3829,7 +3858,6 @@ HTML_DASHBOARD = r"""
                 const d = await res.json();
                 if (d.status === 'SUCCESS') {
                     appendMessage(`🎙️ Neural voice persona switched to **${persona.toUpperCase()}** (${d.description}).`, 'msg-cortex');
-                    playVoiceAudioForText(`Neural voice switched to ${persona}. Systems nominal.`, persona);
                 }
             } catch (e) {
                 console.error('Failed to switch voice persona:', e);

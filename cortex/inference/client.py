@@ -145,15 +145,34 @@ class LocalInferenceClient:
             target_loc = "desktop" if "desktop" in user_input else "."
             return {"confidence": 0.99, "action": {"action": "launch_terminal", "resource": target_loc}}
 
-        # 2. Open / Launch Applications
-        if any(k in user_input for k in ["open notepad", "launch notepad"]):
-            return {"confidence": 0.98, "action": {"action": "launch_application", "resource": "notepad"}}
-        if any(k in user_input for k in ["open calc", "launch calc", "open calculator"]):
-            return {"confidence": 0.98, "action": {"action": "launch_application", "resource": "calc"}}
-        if any(k in user_input for k in ["open brave", "launch brave"]):
-            return {"confidence": 0.98, "action": {"action": "launch_application", "resource": "brave"}}
-        if any(k in user_input for k in ["open explorer", "launch explorer"]):
-            return {"confidence": 0.98, "action": {"action": "launch_application", "resource": "explorer"}}
+        # 2. Open / Launch Applications (Intelligent Dynamic Matcher)
+        app_patterns = [
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?(?:google\s+)?chrome\b", "chrome"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?brave(?:\s+browser)?\b", "brave"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?(?:visual\s+studio\s+code|vs\s*code|code)\b", "code"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?spotify\b", "spotify"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?notepad\b", "notepad"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?(?:calculator|calc)\b", "calc"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?(?:file\s+)?explorer\b", "explorer"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?(?:microsoft\s+)?edge\b", "edge"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?task\s+manager\b", "taskmgr"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?(?:windows\s+)?settings\b", "settings"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?control\s+panel\b", "control"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?paint\b", "paint"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?discord\b", "discord"),
+            (r"\b(?:open|launch|start|run)\s+(?:the\s+)?docker(?:\s+desktop)?\b", "docker"),
+        ]
+
+        for pat, app_key in app_patterns:
+            if re.search(pat, user_input):
+                return {"confidence": 0.99, "action": {"action": "launch_application", "resource": app_key}}
+
+        # Generic open/launch catch-all: "open <app_name>", "launch <app_name>"
+        generic_app = re.search(r"\b(?:open|launch|start)\s+(?:up\s+)?(?:the\s+)?([a-zA-Z0-9_\-\.]+)(?:\s+(?:app|application|browser|window|program))?\b", user_input)
+        if generic_app:
+            candidate_app = generic_app.group(1).lower().strip()
+            if candidate_app not in ["terminal", "powershell", "console", "cmd", "file", "tab", "desktop", "downloads", "folder", "directory", "a", "an", "new"]:
+                return {"confidence": 0.95, "action": {"action": "launch_application", "resource": candidate_app}}
 
         # 3. Master Volume & Mute Controls (hardware level)
         vol_match = re.search(r"\b(?:set\s+volume\s+to|volume\s+to|change\s+volume\s+to|volume\s+at)\s+(\d{1,3})", user_input)
@@ -578,8 +597,11 @@ class LocalInferenceClient:
             if act_name == "launch_application" and "result" in action_result:
                 r = action_result["result"]
                 if r.get("status") == "SUCCESS":
-                    return f"I have launched desktop application `{action_result.get('application')}` (PID `{r.get('pid')}`)."
-                return f"Failed to launch application: {r.get('error')}"
+                    app_name = action_result.get("application") or r.get("application", "target")
+                    resolved = r.get("resolved_path")
+                    extra = f" (path: `{resolved}`)" if resolved else ""
+                    return f"I have launched desktop application **{app_name.capitalize()}** on your laptop{extra}. It is now active and ready."
+                return f"Failed to launch application '{action_result.get('application')}': {r.get('error')}"
 
             if act_name == "command_run":
                 cmd = action_result.get("command", "")
