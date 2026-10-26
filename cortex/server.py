@@ -1,6 +1,7 @@
 import psutil
 import asyncio
 import json
+import logging
 import os
 import sys
 import time
@@ -2680,47 +2681,11 @@ HTML_DASHBOARD = r"""
 
         // ==================== 3. COGNITIVE STAGE ====================
         function initStage3D() {
-            // Replaced with high-visibility static 2D perspective HUD
-        }
-            const w = rect.width || 340;
-            const h = rect.height || 150;
-
-            stageScene = new THREE.Scene();
-            stageCamera = new THREE.PerspectiveCamera(50, w / h, 0.1, 1000);
-            stageCamera.position.set(0, 20, 110);
-            stageCamera.lookAt(0, 0, 0);
-
-            stageRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
-            stageRenderer.setSize(w, h);
-            stageRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-
-            const coreGeom = new THREE.SphereGeometry(12, 18, 18);
-            const coreMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, wireframe: true });
-            const core = new THREE.Mesh(coreGeom, coreMat);
-            stageScene.add(core);
-
-            satGroup = new THREE.Group();
-            stageScene.add(satGroup);
-
-            const sGeom = new THREE.SphereGeometry(5, 14, 14);
-            satAnalytic = new THREE.Mesh(sGeom, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
-            satPragmatic = new THREE.Mesh(sGeom, new THREE.MeshBasicMaterial({ color: 0x10b981 }));
-            satCautious = new THREE.Mesh(sGeom, new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
-
-            satGroup.add(satAnalytic);
-            satGroup.add(satPragmatic);
-            satGroup.add(satCautious);
+            // Clean static 2D perspective HUD active
         }
 
         function onStageResize() {
-            const canvas = document.getElementById('stage-3d-canvas');
-            if (!canvas || !stageCamera || !stageRenderer) return;
-            const w = canvas.clientWidth;
-            const h = canvas.clientHeight;
-            if (w === 0 || h === 0) return;
-            stageCamera.aspect = w / h;
-            stageCamera.updateProjectionMatrix();
-            stageRenderer.setSize(w, h);
+            // Static mode: CSS responsive layout
         }
 
         // ==================== 4. 3D BI-TEMPORAL MULTI-GRAPH UNIVERSE ====================
@@ -3030,14 +2995,18 @@ HTML_DASHBOARD = r"""
         // ==================== UNIFIED HIGH-FRAMERATE ANIMATION LOOP ====================
         function masterRenderLoop() {
             requestAnimationFrame(masterRenderLoop);
-            TWEEN.update();
+            if (typeof TWEEN !== 'undefined' && TWEEN.update) {
+                try { TWEEN.update(); } catch (e) {}
+            }
 
             // Only render 3D if explicitly inspecting the Bi-Temporal Graph
             if (activeTab === 'graph') {
-                if (graphControls) graphControls.update();
-                if (graphRenderer && graphScene && graphCamera) {
-                    graphRenderer.render(graphScene, graphCamera);
-                }
+                try {
+                    if (graphControls) graphControls.update();
+                    if (graphRenderer && graphScene && graphCamera) {
+                        graphRenderer.render(graphScene, graphCamera);
+                    }
+                } catch (e) {}
             }
         }
 
