@@ -5,7 +5,7 @@ tags:
   - cortex/system_state
   - cortex/toolchains
   - cortex/compilers
-last_scanned: "2026-10-26 19:13:52"
+last_scanned: "2026-10-26 20:04:00"
 status: "verified"
 ---
 
@@ -25,7 +25,7 @@ Comprehensive registry of developer compilers, language runtimes, package manage
 | **`mpv`** | `mpv v0.41.0-744-g304426c39 Copyright Â© 2000-2026 mpv/MPlayer/mplayer2 projects` | `C:\Program Files\mpv\mpv.COM` |
 | **`node`** | `v24.11.1` | `C:\Program Files\nodejs\node.EXE` |
 | **`npm`** | `11.6.2` | `C:\Program Files\nodejs\npm.CMD` |
-| **`python`** | `Python 3.10.2` | `C:\Program Files\WindowsApps\PythonSoftwareFoundation.PythonManager_26.4.240.0_x64__3847v3x7pw1km\python.EXE` |
+| **`python`** | `Python 3.12.1` | `C:\Users\soham\.pyenv\pyenv-win\shims\python.BAT` |
 | **`winget`** | `v1.30.140-preview` | `C:\Users\soham\AppData\Local\Microsoft\WindowsApps\winget.EXE` |
 
 ## ⚡ Execution Capabilities

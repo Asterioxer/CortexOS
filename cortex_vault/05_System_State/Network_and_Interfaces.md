@@ -5,7 +5,7 @@ tags:
   - cortex/system_state
   - cortex/network
   - cortex/lan
-last_scanned: "2026-10-26 19:13:52"
+last_scanned: "2026-10-26 20:04:00"
 status: "verified"
 ---
 

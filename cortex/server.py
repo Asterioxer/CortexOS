@@ -1752,6 +1752,17 @@ HTML_DASHBOARD = r"""
                 <button id="btn-voice-bargein" onclick="bargeInStopVoice()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:var(--accent-red); cursor:pointer; font-size:0.68rem; font-weight:700; border-radius:3px; padding:2px 6px;" title="Instant Sub-10ms Barge-In (Stop Speaking)">HALT</button>
                 <button id="btn-voice-greet" onclick="triggerSystemGreeting()" style="background:rgba(0,229,255,0.12); border:1px solid rgba(0,229,255,0.35); color:var(--accent-cyan); cursor:pointer; font-size:0.68rem; font-weight:700; border-radius:3px; padding:2px 7px;" title="Interactive Voice Welcome">👋 Greet</button>
             </div>
+            <!-- Local Ollama LLM Model Controller -->
+            <div class="ticker-item" id="ticker-llm" title="Local Ollama Inference Engine (100% Local / Zero Cloud)">
+                <span>🤖</span>
+                <select id="llm-model-select" onchange="switchLlmModel(this.value)" style="background:rgba(13,20,36,0.85); border:1px solid rgba(16,185,129,0.4); color:var(--accent-green); font-family:var(--font-mono); font-size:0.72rem; border-radius:4px; padding:2px 5px; outline:none; cursor:pointer;">
+                    <option value="qwen2.5:3b">qwen2.5:3b (Fast 1.8GB)</option>
+                    <option value="dolphinlabs/llama3.2-3b-uncensored:latest">llama3.2-3b (Uncensored 3.2GB)</option>
+                    <option value="nandhank/qwen3.5-abliterated-truthful:9b">qwen3.5:9b (Reason 6.1GB)</option>
+                    <option value="gemma3:4b">gemma3:4b (Analytical 3.1GB)</option>
+                </select>
+                <span class="badge" id="llm-status-badge" style="background:rgba(16,185,129,0.15); color:var(--accent-green); font-size:0.65rem;">OLLAMA: CUDA</span>
+            </div>
             <button class="btn-ambient" id="btn-ambient" onclick="toggleAmbient()">AMBIENT: OFF</button>
             <button class="btn-sleep" onclick="triggerSleep()">DIGITAL SLEEP</button>
             <button class="btn-panic" id="btn-standdown" onclick="triggerSystemShutdown()" style="background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.5); color:var(--accent-red);" title="Consolidate memory and stand down CortexOS">🛑 STAND DOWN</button>
@@ -1846,6 +1857,10 @@ HTML_DASHBOARD = r"""
                                 <span>🟡 Cautious (FRIDAY)</span>
                                 <span style="color:var(--accent-yellow);" id="weight-cautious">W: 0.33</span>
                             </div>
+                        </div>
+                        <div style="margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.08); font-size:0.68rem; color:var(--text-dim); display:flex; justify-content:space-between; align-items:center;">
+                            <span>Active LLM Engine:</span>
+                            <span id="hud-active-llm" style="color:var(--accent-green); font-family:var(--font-mono); font-weight:700;">qwen2.5:3b</span>
                         </div>
                     </div>
 
@@ -3224,7 +3239,19 @@ HTML_DASHBOARD = r"""
             const container = document.getElementById('chat-messages');
             const div = document.createElement('div');
             div.className = 'message-bubble msg-cortex';
-            div.innerHTML = `<div>${formatMarkdown(data.response)}</div>
+            
+            let metaHeader = '';
+            if (data.model) {
+                metaHeader = `<div style="font-size:0.68rem; font-family:var(--font-mono); color:var(--accent-green); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span>🤖</span> <span>LOCAL ENGINE: <strong>${escapeHtml(data.model)}</strong> (OLLAMA CUDA)</span>
+                </div>`;
+            } else if (data.deterministic_trigger) {
+                metaHeader = `<div style="font-size:0.68rem; font-family:var(--font-mono); color:var(--accent-cyan); margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                    <span>🎯</span> <span>GROUNDED TRIGGER: <strong>${escapeHtml(data.deterministic_trigger)}</strong></span>
+                </div>`;
+            }
+
+            div.innerHTML = `${metaHeader}<div>${formatMarkdown(data.response)}</div>
             <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
                 <button class="btn-voice-bubble" onclick="playVoiceAudio(this)" data-text="${encodeURIComponent(data.response)}" data-persona="${data.persona || ''}">
                     <span>🔊</span> Speak
@@ -4787,6 +4814,52 @@ HTML_DASHBOARD = r"""
             }
         });
 
+        // ==================== 8. LOCAL OLLAMA INFERENCE CONTROLS ====================
+        async function switchLlmModel(model) {
+            try {
+                const res = await fetch('/api/llm/select', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: model })
+                });
+                const d = await res.json();
+                if (d.status === 'SUCCESS') {
+                    const el = document.getElementById('hud-active-llm');
+                    if (el) el.innerText = d.active_model;
+                    appendMessage(`🤖 Local LLM switched to **${d.active_model}** (CUDA Accelerated via Ollama).`, 'msg-cortex');
+                }
+            } catch (e) {
+                console.error('Failed to switch local LLM model:', e);
+            }
+        }
+
+        async function loadLlmModels() {
+            try {
+                const res = await fetch('/api/llm/models');
+                const d = await res.json();
+                const sel = document.getElementById('llm-model-select');
+                const badge = document.getElementById('llm-status-badge');
+                const hudLlm = document.getElementById('hud-active-llm');
+                if (badge) {
+                    badge.innerText = d.online ? 'OLLAMA: READY' : 'OLLAMA: OFFLINE';
+                    badge.style.color = d.online ? 'var(--accent-green)' : 'var(--accent-red)';
+                }
+                if (hudLlm && d.active_model) hudLlm.innerText = d.active_model;
+                if (sel && d.available_models && d.available_models.length > 0) {
+                    sel.innerHTML = '';
+                    d.available_models.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.name;
+                        opt.text = `${m.name} (${m.size_gb}GB)`;
+                        if (m.name === d.active_model) opt.selected = true;
+                        sel.appendChild(opt);
+                    });
+                }
+            } catch (e) {
+                console.warn('Ollama models probe skipped:', e);
+            }
+        }
+
         // Initialize Everything on Window Load
         window.addEventListener('DOMContentLoaded', () => {
             connectWebSocket();
@@ -4795,6 +4868,7 @@ HTML_DASHBOARD = r"""
             initDelegatedTiltPhysics();
             masterRenderLoop();
             updateNetworkTicker();
+            loadLlmModels();
         });
     </script>
 </body>
@@ -5152,6 +5226,31 @@ async def system_trigger(req: Dict[str, Any]):
         return await router.execute(match)
     return {"status": "NO_MATCH", "prompt": prompt}
 
+@app.get("/api/llm/models")
+async def get_llm_models():
+    from cortex.inference.ollama_bridge import get_ollama_bridge
+    bridge = get_ollama_bridge()
+    await bridge.list_models()
+    return bridge.get_status_payload()
+
+@app.post("/api/llm/select")
+async def select_llm_model(req: Dict[str, Any]):
+    model_name = req.get("model", "")
+    from cortex.inference.ollama_bridge import get_ollama_bridge
+    bridge = get_ollama_bridge()
+    success = bridge.set_active_model(model_name)
+    return {"status": "SUCCESS" if success else "ERROR", "active_model": bridge.active_model}
+
+@app.post("/api/llm/generate")
+async def generate_llm(req: Dict[str, Any]):
+    prompt = req.get("prompt", "")
+    system = req.get("system")
+    temp = float(req.get("temperature", 0.3))
+    from cortex.inference.ollama_bridge import get_ollama_bridge
+    bridge = get_ollama_bridge()
+    reply = await bridge.generate(prompt=prompt, system=system, temperature=temp)
+    return {"status": "SUCCESS" if reply else "ERROR", "response": reply, "model": bridge.active_model}
+
 @app.get("/api/execution/processes")
 async def get_processes_telemetry():
     proc = psutil.Process(os.getpid())
@@ -5498,7 +5597,50 @@ async def websocket_endpoint(websocket: WebSocket):
                     })
                     continue
 
-                # 2. General Tri-Perspective Cognitive Tick Loop
+                # 2. Local Ollama LLM Autonomous Reasoning Loop (Zero-Cloud Machine Intelligence)
+                from cortex.inference.ollama_bridge import get_ollama_bridge
+                from cortex.vault.rag_engine import get_vault_rag
+                bridge = get_ollama_bridge()
+                vault_rag = get_vault_rag()
+                
+                ollama_online = await bridge.check_health()
+                if ollama_online:
+                    try:
+                        auto_res = await bridge.autonomous_think_and_act(
+                            user_prompt=user_prompt,
+                            somato_cortex=engine.somato,
+                            vault_rag=vault_rag,
+                            trigger_router=router
+                        )
+                        engine.state.tick_id += 1
+                        trace_str = f"[Tick {engine.state.tick_id} | Ollama:{bridge.active_model}] {user_prompt} -> {auto_res['status']}"
+                        engine.state.stm_buffer.append(trace_str)
+                        wm.core_memory_append("scratchpad_stm", trace_str)
+                        
+                        cand = [
+                            {"perspective": f"Ollama ({bridge.active_model})", "thought_text": auto_res.get("response", "")[:120] + "...", "score": 10}
+                        ]
+                        
+                        await websocket.send_json({
+                            "type": "cortex_response",
+                            "response": auto_res["response"],
+                            "speak": voice_engine.enabled,
+                            "persona": voice_engine.active_persona,
+                            "candidates": cand,
+                            "action_result": auto_res.get("action_result") or auto_res.get("action_executed"),
+                            "model": bridge.active_model,
+                            "state": {
+                                "tick_id": engine.state.tick_id,
+                                "entropy": 0.1,
+                                "temperature": 0.3,
+                                "blocks": {k: {"value": b.value} for k, b in wm.blocks.items()}
+                            }
+                        })
+                        continue
+                    except Exception as err:
+                        logging.getLogger("cortex.server").warning(f"Ollama cognitive execution fallback: {err}")
+
+                # 3. Fallback Tri-Perspective Cognitive Tick Loop
                 result = await engine.run_cognitive_tick(external_input=user_prompt)
 
                 if result.hold_card:

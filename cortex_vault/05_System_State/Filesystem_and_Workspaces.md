@@ -5,7 +5,7 @@ tags:
   - cortex/system_state
   - cortex/workspaces
   - cortex/projects
-last_scanned: "2026-10-26 19:13:52"
+last_scanned: "2026-10-26 20:04:00"
 status: "verified"
 ---
 
@@ -60,7 +60,7 @@ Taxonomy of operator project directories discovered across `C:\Users\soham\Deskt
 | **`Token_ERC721`** | Blockchain & Web3 | ✗ | 7 | `C:\Users\soham\Desktop\Token_ERC721` |
 | **`Token_N`** | Blockchain & Web3 | ✗ | 7 | `C:\Users\soham\Desktop\Token_N` |
 | **`Trading_Bot`** | Quantitative & Finance | ✗ | 1 | `C:\Users\soham\Desktop\Trading_Bot` |
-| **`voice-lab`** | AI / Cognitive Systems | ✗ | 63 | `C:\Users\soham\Desktop\voice-lab` |
+| **`voice-lab`** | AI / Cognitive Systems | ✗ | 0 | `C:\Users\soham\Desktop\voice-lab` |
 | **`Workout_tracker`** | General Development | ✓ | 16 | `C:\Users\soham\Desktop\Workout_tracker` |
 | **`xai`** | AI / Cognitive Systems | ✗ | 7 | `C:\Users\soham\Desktop\xai` |
 
