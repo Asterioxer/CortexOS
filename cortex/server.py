@@ -7,6 +7,15 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+if sys.platform == "win32":
+    try:
+        if sys.stdout is not None:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if sys.stderr is not None:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.responses import HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from cortex.main import build_cortex_stack
 from cortex.embodiment.voice import voice_engine
+from cortex.startup.service_manager import get_service_manager
 
 app = FastAPI(title="CortexOS Real-Time Cognitive Dashboard")
 app.add_middleware(
@@ -79,6 +89,11 @@ class VoicePersonaRequest(BaseModel):
 
 class VoiceToggleRequest(BaseModel):
     enabled: bool
+
+class AutostartToggleRequest(BaseModel):
+    action: Optional[str] = "toggle"  # "enable", "disable", "toggle"
+    host: Optional[str] = "0.0.0.0"
+    port: Optional[int] = 8000
 
 
 HTML_DASHBOARD = r"""
@@ -1475,7 +1490,7 @@ HTML_DASHBOARD = r"""
         /* Daemons Grid */
         .daemons-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 18px;
         }
         .daemon-card {
@@ -1568,6 +1583,9 @@ HTML_DASHBOARD = r"""
             <div class="ticker-item">H(W) <span class="val" id="entropy-val">1.00</span></div>
             <div class="ticker-item">TEMP <span class="val" id="temp-val">0.40</span></div>
             <div class="ticker-item">UQ <span class="val" id="uq-val" style="color:var(--accent-green)">PASS</span></div>
+            <div class="ticker-item" id="ticker-network" title="Cortex Universal Network & Boot Daemon (Click to manage)" onclick="switchTab('execution'); switchExecutionSubView('daemons', document.getElementById('btn-exec-view-daemons'));" style="cursor:pointer;">
+                <span>🌐</span> <span class="val" id="net-ticker-text">LAN: probing...</span>
+            </div>
             <div class="ticker-item" id="ticker-media" style="cursor:pointer;" onclick="pollLiveMedia()" title="Click to refresh audio">
                 <div class="eq-bars">
                     <span class="eq-bar"></span>
@@ -2098,7 +2116,7 @@ HTML_DASHBOARD = r"""
                             <span>🤖</span> Active Background Daemons & Runtimes
                         </h3>
                         <div style="display:flex; align-items:center; gap:12px;">
-                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">4 Autonomous Supervisors</span>
+                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">5 Autonomous Supervisors & Daemons</span>
                             <button class="btn-subtle" onclick="toggleSectionCollapse('daemons-grid', this)"><span>▾</span> Collapse</button>
                         </div>
                     </div>
@@ -2136,6 +2154,19 @@ HTML_DASHBOARD = r"""
                             <div class="daemon-metric">Stage 1-4: <span class="val">WAL / Bigram / LoRA</span></div>
                             <div class="daemon-metric">Scheduler: <span class="val">AC Power & Idle State</span></div>
                             <div class="daemon-metric">Status: <span class="val">Memory Consolidation</span></div>
+                        </div>
+                        <!-- 5. Cross-Platform System Daemon & Boot Autostart -->
+                        <div class="daemon-card tilt-card" style="border-color: rgba(0,229,255,0.4); box-shadow: 0 0 16px rgba(0,229,255,0.07);">
+                            <div class="daemon-head"><span class="daemon-name">🚀 System Boot & LAN Daemon</span><span class="daemon-badge daemon-running" id="init-autostart-badge">DAEMON</span></div>
+                            <div class="daemon-metric">Autostart: <span class="val" id="init-autostart-val">Active / Universal</span></div>
+                            <div class="daemon-metric">Universal LAN: <span class="val" id="init-lan-val" style="color:var(--accent-green); cursor:pointer;" onclick="copyToClipboard('http://127.0.0.1:8000', this)">Detecting... 📋</span></div>
+                            <div class="daemon-metric">Localhost: <span class="val">http://127.0.0.1:8000</span></div>
+                            <div class="daemon-metric">Platform: <span class="val" id="init-platform-val">Cross-Platform</span></div>
+                            <div style="margin-top:6px; display:flex; gap:8px;">
+                                <button id="btn-autostart-toggle" class="btn-subtle" onclick="toggleBootAutostart()" style="flex:1; border-color:rgba(0,229,255,0.4); color:var(--accent-cyan); font-size:0.75rem; font-weight:700;">
+                                    ⚡ Toggle Boot Autostart
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3492,12 +3523,84 @@ HTML_DASHBOARD = r"""
             }
         }
 
+        async function copyToClipboard(text, elem) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.position = 'fixed';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                }
+                if (elem) {
+                    const orig = elem.innerText;
+                    elem.innerText = 'COPIED!';
+                    setTimeout(() => { elem.innerText = orig; }, 1800);
+                }
+            } catch (e) {
+                prompt('Copy address to clipboard:', text);
+            }
+        }
+
+        async function toggleBootAutostart() {
+            try {
+                const btn = document.getElementById('btn-autostart-toggle');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerText = 'Applying...';
+                }
+                const res = await fetch('/api/system/daemon/autostart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'toggle' })
+                });
+                await res.json();
+                await loadDaemonsTelemetry();
+                await updateNetworkTicker();
+            } catch (e) {
+                console.error('Failed to toggle autostart:', e);
+            }
+        }
+
+        async function updateNetworkTicker() {
+            try {
+                const res = await fetch('/api/system/network');
+                if (!res.ok) return;
+                const net = await res.json();
+                const el = document.getElementById('net-ticker-text');
+                if (el && net.primary_ip) {
+                    el.innerText = `LAN: ${net.primary_ip}:${net.port}`;
+                }
+            } catch (e) {
+                // silent fallback
+            }
+        }
+
         async function loadDaemonsTelemetry() {
             try {
                 const res = await fetch('/api/execution/daemons');
                 const data = await res.json();
                 const grid = document.getElementById('daemons-grid');
                 if (!grid) return;
+
+                const sys = data.system_daemon || {};
+                const net = sys.network || {};
+                const auto = sys.autostart || {};
+                const autoActive = !!auto.enabled;
+                const netUrl = net.network_url || `http://${window.location.hostname}:${window.location.port || '8000'}`;
+                const localUrl = net.local_url || 'http://127.0.0.1:8000';
+                const sysMethod = auto.method || (sys.platform === 'windows' ? 'HKCU Run / VBS' : 'System Service');
+
+                // Update header ticker
+                const tickerEl = document.getElementById('net-ticker-text');
+                if (tickerEl && net.primary_ip) {
+                    tickerEl.innerText = `LAN: ${net.primary_ip}:${net.port || '8000'}`;
+                }
 
                 grid.innerHTML = `
                     <!-- 1. Uvicorn -->
@@ -3545,6 +3648,25 @@ HTML_DASHBOARD = r"""
                         <div class="daemon-metric">Engrams Stored: <span class="val">${data.sleep_daemon.engrams_consolidated} Atomic Engrams</span></div>
                         <div class="daemon-metric">Stage 1-4: <span class="val">WAL / Bigram / LoRA</span></div>
                         <div class="daemon-metric">Scheduler: <span class="val">AC Power & Idle State</span></div>
+                    </div>
+
+                    <!-- 5. Cross-Platform System Daemon & Boot Autostart -->
+                    <div class="daemon-card tilt-card" style="border-color: rgba(0,229,255,0.4); box-shadow: 0 0 16px rgba(0,229,255,0.07);">
+                        <div class="daemon-head">
+                            <span class="daemon-name">🚀 System Boot & LAN Daemon</span>
+                            <span class="daemon-badge ${autoActive ? 'daemon-running' : 'daemon-nominal'}">
+                                ${autoActive ? 'BOOT ENABLED' : 'BOOT DISABLED'}
+                            </span>
+                        </div>
+                        <div class="daemon-metric">Platform: <span class="val">${(sys.platform || 'Cross-Platform').toUpperCase()} (${escapeHtml(sysMethod)})</span></div>
+                        <div class="daemon-metric">Universal LAN: <span class="val" style="color:var(--accent-green); cursor:pointer;" onclick="copyToClipboard('${netUrl}', this)" title="Click to copy universal LAN address">${netUrl} 📋</span></div>
+                        <div class="daemon-metric">Localhost: <span class="val">${localUrl}</span></div>
+                        <div class="daemon-metric">Daemon State: <span class="val">${sys.running ? '🟢 RUNNING (PID ' + sys.pid + ')' : '🟡 RUNTIME ACTIVE'}</span></div>
+                        <div style="margin-top:6px; display:flex; gap:8px;">
+                            <button id="btn-autostart-toggle" class="btn-subtle" onclick="toggleBootAutostart()" style="flex:1; border-color:${autoActive ? 'rgba(239,68,68,0.5)' : 'rgba(0,229,255,0.5)'}; color:${autoActive ? 'var(--accent-red)' : 'var(--accent-cyan)'}; font-size:0.75rem; font-weight:700;">
+                                ${autoActive ? '✕ Disable Boot Autostart' : '✓ Enable Boot Autostart'}
+                            </button>
+                        </div>
                     </div>
                 `;
             } catch (e) {
@@ -4074,6 +4196,7 @@ HTML_DASHBOARD = r"""
             initStage3D();
             initDelegatedTiltPhysics();
             masterRenderLoop();
+            updateNetworkTicker();
         });
     </script>
 </body>
@@ -4325,6 +4448,8 @@ async def get_daemons_status():
     engine = stack["engine"]
     breaker = engine.stall_breaker
     memory = stack["memory"]
+    mgr = get_service_manager()
+    current_port = int(os.environ.get("CORTEX_PORT", "8000"))
     
     uptime_sec = round(time.time() - proc.create_time(), 1)
     
@@ -4341,7 +4466,7 @@ async def get_daemons_status():
         "uvicorn_server": {
             "name": "FastAPI / Uvicorn Cognitive Gateway",
             "pid": os.getpid(),
-            "port": 8000,
+            "port": current_port,
             "status": "RUNNING",
             "uptime_seconds": uptime_sec,
             "cpu_percent": cpu_pct,
@@ -4367,8 +4492,47 @@ async def get_daemons_status():
             "status": "STANDBY (Idle-Scheduled)",
             "engrams_consolidated": engrams_count,
             "last_cycle_status": "READY"
-        }
+        },
+        "system_daemon": mgr.status(port=current_port)
     }
+
+# 6.1 Cross-Platform Background Daemon & Boot Autostart Endpoints
+@app.get("/api/system/daemon")
+async def get_system_daemon_status():
+    mgr = get_service_manager()
+    port = int(os.environ.get("CORTEX_PORT", "8000"))
+    return mgr.status(port=port)
+
+@app.post("/api/system/daemon/autostart")
+async def toggle_system_autostart(req: Optional[AutostartToggleRequest] = None):
+    mgr = get_service_manager()
+    action = (req.action or "toggle").lower() if req else "toggle"
+    target_host = (req.host if req and req.host else os.environ.get("CORTEX_HOST", "0.0.0.0"))
+    target_port = (req.port if req and req.port else int(os.environ.get("CORTEX_PORT", "8000")))
+
+    if action in ["install", "enable"]:
+        res = mgr.install_autostart(host=target_host, port=target_port)
+    elif action in ["uninstall", "disable"]:
+        res = mgr.uninstall_autostart()
+    else: # toggle
+        is_active = mgr.is_autostart_configured()
+        if is_active:
+            res = mgr.uninstall_autostart()
+        else:
+            res = mgr.install_autostart(host=target_host, port=target_port)
+
+    return {
+        "success": res.get("status") == "SUCCESS",
+        "result": res,
+        "autostart": mgr.is_autostart_enabled(),
+        "platform": mgr.os_type
+    }
+
+@app.get("/api/system/network")
+async def get_system_network():
+    mgr = get_service_manager()
+    port = int(os.environ.get("CORTEX_PORT", "8000"))
+    return mgr.get_network_info(port=port)
 
 @app.get("/api/execution/processes")
 async def get_processes_telemetry():
@@ -4671,8 +4835,24 @@ async def ambient_background_worker():
 async def startup_event():
     asyncio.create_task(ambient_background_worker())
 
-def start_server(host: str = "127.0.0.1", port: int = 8000):
-    uvicorn.run(app, host=host, port=port, log_level="info")
+def start_server(host: Optional[str] = None, port: Optional[int] = None):
+    mgr = get_service_manager()
+    target_host = host or os.environ.get("CORTEX_HOST", "0.0.0.0")
+    target_port = port if port is not None else int(os.environ.get("CORTEX_PORT", "8000"))
+    
+    lan_ip = mgr.get_primary_lan_ip()
+    auto_status = "ENABLED" if mgr.is_autostart_configured() else "DISABLED"
+    
+    print("=" * 68)
+    print("🧠 CORTEX-OS UNIVERSAL SYSTEM DAEMON & COGNITIVE RUNTIME")
+    print(f"Platform: {mgr.os_type.upper()} | Boot Autostart: {auto_status}")
+    print(f"Local Loopback:   http://127.0.0.1:{target_port}")
+    if lan_ip and lan_ip != "127.0.0.1":
+        print(f"Universal LAN IP: http://{lan_ip}:{target_port} (Phones, Tablets & LAN)")
+    print(f"Listening on:     http://{target_host}:{target_port}")
+    print("=" * 68)
+    
+    uvicorn.run(app, host=target_host, port=target_port, log_level="info")
 
 if __name__ == "__main__":
     start_server()
