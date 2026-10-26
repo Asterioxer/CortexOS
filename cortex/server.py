@@ -3588,6 +3588,9 @@ HTML_DASHBOARD = r"""
         function stopCurrentVoiceAudio() {
             if (currentPlayingAudio) {
                 try {
+                    currentPlayingAudio.onplay = null;
+                    currentPlayingAudio.onended = null;
+                    currentPlayingAudio.onerror = null;
                     currentPlayingAudio.pause();
                     currentPlayingAudio.currentTime = 0;
                 } catch (e) {}
@@ -3630,6 +3633,22 @@ HTML_DASHBOARD = r"""
             if (icon) icon.innerText = '🗣️';
             isVoiceSpeaking = true;
 
+            let fallbackTriggered = false;
+            const triggerFallback = () => {
+                if (fallbackTriggered) return;
+                fallbackTriggered = true;
+                if (currentPlayingAudio) {
+                    try {
+                        currentPlayingAudio.onplay = null;
+                        currentPlayingAudio.onended = null;
+                        currentPlayingAudio.onerror = null;
+                        currentPlayingAudio.pause();
+                    } catch (e) {}
+                    currentPlayingAudio = null;
+                }
+                speakWebSpeechSynthesis(clean, targetPersona);
+            };
+
             try {
                 const audio = new Audio(audioUrl);
                 currentPlayingAudio = audio;
@@ -3642,14 +3661,22 @@ HTML_DASHBOARD = r"""
                     stopCurrentVoiceAudio();
                 };
                 audio.onerror = () => {
-                    // Fall back to Web Speech Synthesis API
-                    speakWebSpeechSynthesis(clean, targetPersona);
+                    if (currentPlayingAudio === audio) {
+                        triggerFallback();
+                    }
                 };
 
-                await audio.play();
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch((err) => {
+                        console.warn('Audio play failed, falling back to Web Speech:', err);
+                        if (currentPlayingAudio === audio) {
+                            triggerFallback();
+                        }
+                    });
+                }
             } catch (err) {
-                // Autoplay policy or fetch error - fall back to Web Speech Synthesis API
-                speakWebSpeechSynthesis(clean, targetPersona);
+                triggerFallback();
             }
         }
 
@@ -4382,16 +4409,15 @@ async def websocket_endpoint(websocket: WebSocket):
                 result = await engine.run_cognitive_tick(external_input=user_prompt)
 
                 if result.hold_card:
-                    if voice_engine.enabled:
-                        voice_engine.speak("Security hold required for external action.")
                     await websocket.send_json({
                         "type": "hold_card",
                         "card": result.hold_card
                     })
                 else:
-                    if voice_engine.enabled and result.user_response:
-                        voice_engine.speak(result.user_response)
-
+                    # In WebSocket streaming for the web dashboard, the client browser
+                    # plays the synthesized speech via the streaming audio endpoint `/api/voice/audio`.
+                    # Omitting backend voice_engine.speak() here prevents dual playback
+                    # (host sounddevice + browser HTML5 audio colliding simultaneously).
                     await websocket.send_json({
                         "type": "cortex_response",
                         "response": result.user_response,
@@ -4416,9 +4442,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     resumed = await engine.run_cognitive_tick(
                         external_input=last_pending_prompt, human_approval=True
                     )
-                    if voice_engine.enabled and resumed.user_response:
-                        voice_engine.speak(resumed.user_response)
-
                     await websocket.send_json({
                         "type": "cortex_response",
                         "response": resumed.user_response,
