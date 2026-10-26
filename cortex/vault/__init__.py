@@ -11,12 +11,16 @@ from cortex.vault.vault_manager import ObsidianVault, get_vault
 from cortex.vault.rag_engine import VaultRAG, get_vault_rag
 from cortex.vault.git_sync import VaultSync, get_vault_sync
 from cortex.vault.copilot_pair import PairCopilot, get_pair_copilot
+from cortex.vault.system_cartographer import SystemCartographer
+from cortex.vault.evolution_engine import SelfEvolutionEngine
 
 __all__ = [
     "ObsidianVault",
     "VaultRAG",
     "VaultSync",
     "PairCopilot",
+    "SystemCartographer",
+    "SelfEvolutionEngine",
     "get_vault",
     "get_vault_rag",
     "get_vault_sync",

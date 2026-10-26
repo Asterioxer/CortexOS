@@ -538,6 +538,16 @@ class GWACognitiveTickEngine:
                 note = get_vault().save_note(p, cnt, title=t)
                 return {"action": "vault_add_note", "path": note.rel_path, "status": "SUCCESS"}, None
 
+            elif action_type == "cartography_scan":
+                from cortex.vault.system_cartographer import SystemCartographer
+                cart_res = SystemCartographer().run_full_cartography_scan()
+                return {"action": "cartography_scan", "result": cart_res, "status": "SUCCESS"}, None
+
+            elif action_type == "evolution_cycle":
+                from cortex.vault.evolution_engine import SelfEvolutionEngine
+                evo_res = SelfEvolutionEngine().run_evolution_cycle(trigger_source="tick_engine")
+                return {"action": "evolution_cycle", "result": evo_res, "status": "SUCCESS"}, None
+
             elif self.skills:
                 skill_res = await self.skills.execute_or_synthesize(action)
                 return skill_res, None

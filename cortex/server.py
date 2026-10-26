@@ -32,6 +32,8 @@ from cortex.vault.vault_manager import get_vault
 from cortex.vault.rag_engine import get_vault_rag
 from cortex.vault.git_sync import get_vault_sync
 from cortex.vault.copilot_pair import get_pair_copilot
+from cortex.vault.system_cartographer import SystemCartographer
+from cortex.vault.evolution_engine import SelfEvolutionEngine
 
 app = FastAPI(title="CortexOS Real-Time Cognitive Dashboard")
 app.add_middleware(
@@ -2482,6 +2484,29 @@ HTML_DASHBOARD = r"""
                                 ⚡ Backup & Sync Vault
                             </button>
                         </div>
+
+                        <!-- Widget 4: Autopoietic Self-Evolution & System Cartography -->
+                        <div class="exec-card tilt-card" style="margin:0; padding:12px; border-color:rgba(204,51,255,0.4);">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                <span style="font-family:var(--font-mono); font-size:0.8rem; font-weight:700; color:#cc33ff; display:flex; align-items:center; gap:6px;">
+                                    <span>🧬</span> Self-Evolution & Cartography
+                                </span>
+                                <span class="badge" id="vault-evolution-health-badge" style="background:rgba(204,51,255,0.15); color:#cc33ff; font-size:0.68rem; padding:2px 6px; border-radius:4px;">NOMINAL</span>
+                            </div>
+                            <div style="font-size:0.72rem; color:var(--text-dim); margin-bottom:8px;">
+                                Autonomously scans host hardware & toolchains, measures health entropy, adapts arbitration heuristics, and consolidates memory.
+                            </div>
+                            <div style="display:flex; gap:6px; margin-bottom:8px;">
+                                <button class="btn-subtle" onclick="triggerCartographyScan()" id="btn-vault-cartography" style="flex:1; font-size:0.72rem; padding:6px; border-color:var(--accent-cyan); color:var(--accent-cyan);">
+                                    🛰️ Cartography
+                                </button>
+                                <button class="btn-subtle" onclick="triggerSelfEvolution()" id="btn-vault-evolve" style="flex:1; font-size:0.72rem; padding:6px; border-color:#cc33ff; color:#cc33ff;">
+                                    ⚡ Self-Evolve
+                                </button>
+                            </div>
+                            <div id="vault-evolution-output" style="max-height:120px; overflow-y:auto; font-family:var(--font-mono); font-size:0.7rem; background:rgba(6,9,17,0.85); padding:6px; border-radius:6px; border:1px solid var(--border-panel); color:var(--text-dim); display:none;">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -4757,6 +4782,70 @@ HTML_DASHBOARD = r"""
             }
         }
 
+        async function triggerCartographyScan() {
+            const btn = document.getElementById('btn-vault-cartography');
+            const outputBox = document.getElementById('vault-evolution-output');
+            if (btn) { btn.disabled = true; btn.innerText = 'Scanning...'; }
+            if (outputBox) {
+                outputBox.style.display = 'block';
+                outputBox.innerHTML = '<span style="color:var(--accent-cyan);">🛰️ Scanning hardware, toolchains, network, and workspaces...</span>';
+            }
+            try {
+                const res = await fetch('/api/vault/cartography', { method: 'POST' });
+                const data = await res.json();
+                const snap = data.snapshot || {};
+                const projs = snap.workspaces ? snap.workspaces.total_projects : 0;
+                const tools = snap.toolchains ? Object.keys(snap.toolchains).length : 0;
+                outputBox.innerHTML = `
+                    <div style="color:var(--accent-cyan); font-weight:700;">✓ Cartography Scan Complete (${data.latency_ms ? data.latency_ms.toFixed(1) : 0}ms)</div>
+                    <div>Indexed: ${tools} toolchains | ${projs} desktop projects</div>
+                    <div>Primary IP: ${snap.network ? snap.network.primary_lan_ip : 'N/A'}</div>
+                    <div style="color:var(--text-dim); margin-top:2px;">Diffs: ${(data.diffs || []).join('; ')}</div>
+                `;
+                // Reload notes list so newly generated system state notes show up
+                loadVaultNotes();
+            } catch (e) {
+                if (outputBox) outputBox.innerHTML = `<span style="color:var(--accent-red);">Scan error: ${e}</span>`;
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = '🛰️ Cartography'; }
+            }
+        }
+
+        async function triggerSelfEvolution() {
+            const btn = document.getElementById('btn-vault-evolve');
+            const outputBox = document.getElementById('vault-evolution-output');
+            const badge = document.getElementById('vault-evolution-health-badge');
+            if (btn) { btn.disabled = true; btn.innerText = 'Evolving...'; }
+            if (outputBox) {
+                outputBox.style.display = 'block';
+                outputBox.innerHTML = '<span style="color:#cc33ff;">🧬 Executing 5-phase autopoietic self-evolution cycle...</span>';
+            }
+            try {
+                const res = await fetch('/api/vault/evolve', { method: 'POST' });
+                const data = await res.json();
+                const health = data.health || {};
+                if (badge && health.health_score) {
+                    badge.innerText = `${health.health_score}% ${health.status_label || ''}`;
+                }
+                const w = data.weights || {};
+                outputBox.innerHTML = `
+                    <div style="color:#cc33ff; font-weight:700;">✓ Self-Evolution Cycle Complete (${data.latency_ms ? data.latency_ms.toFixed(1) : 0}ms)</div>
+                    <div>Health: ${health.health_score}% [${health.status_label || 'NOMINAL'}]</div>
+                    <div>Adapted Weights: A:${w.analytic || 0.33} P:${w.pragmatic || 0.34} C:${w.cautious || 0.33}</div>
+                    <div>RAG Chunks: ${data.rag_chunks || 0} | Backup: ${data.git_backup || 'OK'}</div>
+                `;
+                // Refresh vault status and notes
+                const statusRes = await fetch('/api/vault/status');
+                const statusData = await statusRes.json();
+                updateVaultStats(statusData);
+                loadVaultNotes();
+            } catch (e) {
+                if (outputBox) outputBox.innerHTML = `<span style="color:var(--accent-red);">Evolution cycle error: ${e}</span>`;
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = '⚡ Self-Evolve'; }
+            }
+        }
+
         // Keyboard Navigation Shortcuts
         window.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.key === '1') { e.preventDefault(); switchTab('stage'); }
@@ -5371,6 +5460,30 @@ async def sync_vault(req: Optional[VaultSyncRequest] = None):
 async def pair_copilot_execute(req: VaultPairRequest):
     copilot = get_pair_copilot()
     return await copilot.execute_pair_request(req.prompt)
+
+@app.post("/api/vault/cartography")
+async def run_vault_cartography():
+    cart = SystemCartographer()
+    return cart.run_full_cartography_scan()
+
+@app.post("/api/vault/evolve")
+async def run_vault_evolution():
+    evo = SelfEvolutionEngine()
+    return evo.run_evolution_cycle(trigger_source="web_ui")
+
+@app.get("/api/vault/evolution-ledger")
+async def get_evolution_ledger():
+    evo = SelfEvolutionEngine()
+    return evo.introspect_system_health()
+
+@app.post("/api/vault/synthesize-skill")
+async def synthesize_vault_skill(req: Dict[str, Any]):
+    name = req.get("name", "NewSkill")
+    triggers = req.get("triggers", [f"run {name.lower()}"])
+    steps = req.get("steps", ["Step 1: Execute governed action"])
+    category = req.get("category", "Developer Automation")
+    evo = SelfEvolutionEngine()
+    return evo.synthesize_skill(name=name, trigger_phrases=triggers, steps=steps, category=category)
 
 
 # ==================== WEBSOCKET STREAMING ====================

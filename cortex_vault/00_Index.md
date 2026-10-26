@@ -37,8 +37,20 @@ Welcome to the **CortexOS Ground-Truth Knowledge Substrate**. This vault serves 
 ### 4. [[04_Skills_Catalog/Skills_Registry|Skills & Procedures]]
 - [[04_Skills_Catalog/Skills_Registry|Autopoietic Procedural Skills Registry]]
 
-### 5. [[05_System_State/System_Telemetry|Telemetry & System Posture]]
+### 5. [[05_System_State/Hardware_Topology|System State & Ground-Truth Cartography]]
+- [[05_System_State/Hardware_Topology|Host Hardware Topology & Substrate (CPU, Dual GPUs, RAM, Disks)]]
+- [[05_System_State/OS_and_Kernel_Environment|Operating System, Kernel Environment & Shell Runtimes]]
+- [[05_System_State/Toolchains_and_Compilers|Installed Developer Toolchains & Compilers (Python, Node, Go, Docker, etc.)]]
+- [[05_System_State/Network_and_Interfaces|Network Adapters & LAN Universal Interfaces]]
+- [[05_System_State/Filesystem_and_Workspaces|Operator Workspaces & Project Filesystem Map (48 Desktop Projects)]]
 - [[05_System_State/System_Telemetry|Live Hardware Posture & Telemetry]]
+
+### 6. [[06_Self_Evolution/Autonomous_Evolution_Architecture|Self-Evolution & Autonomy Engine]]
+- [[06_Self_Evolution/Autonomous_Evolution_Architecture|Autonomous Evolution Architecture & 5-Phase Self-Autonomy Loop]]
+- [[06_Self_Evolution/Introspection_Ledger|Autonomous Introspection & Evolution Ledger]]
+- [[06_Self_Evolution/Heuristic_Adaptation_Matrix|Heuristic Adaptation Matrix & Dynamic Arbitration Parameters]]
+- [[06_Self_Evolution/Skill_Synthesis_Engine|Autopoietic Skill Synthesis Engine]]
+- [[06_Self_Evolution/Autonomy_Boundaries_and_Escalation|Autonomy Boundaries, Cedar Policies & Escalation Matrix]]
 
 ---
 > [!NOTE] Anti-Hallucination Mandate

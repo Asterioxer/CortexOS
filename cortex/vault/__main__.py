@@ -28,6 +28,8 @@ from cortex.vault.vault_manager import get_vault
 from cortex.vault.rag_engine import get_vault_rag
 from cortex.vault.git_sync import get_vault_sync
 from cortex.vault.copilot_pair import get_pair_copilot
+from cortex.vault.system_cartographer import SystemCartographer
+from cortex.vault.evolution_engine import SelfEvolutionEngine
 
 
 def main():
@@ -37,7 +39,7 @@ def main():
     )
     parser.add_argument(
         "action",
-        choices=["status", "search", "list", "view", "sync", "backup", "pair", "add"],
+        choices=["status", "search", "list", "view", "sync", "backup", "pair", "add", "cartography", "evolve", "ledger", "synthesize"],
         help="Action to perform"
     )
     parser.add_argument("query", nargs="?", default="", help="Search query, note path, or pair command")
@@ -156,6 +158,72 @@ def main():
         note = vault.save_note(path, content, title=title)
         rag._build_index()
         print(f"[✓] Note saved to {note.rel_path} ({note.word_count} words).")
+
+    elif args.action == "cartography":
+        print("[*] Running System Cartographer scan across host environment...")
+        cart = SystemCartographer(vault.vault_path)
+        res = cart.run_full_cartography_scan()
+        if args.json:
+            print(json.dumps(res, indent=2))
+        else:
+            print("=" * 68)
+            print("🛰️ CORTEX-OS // SYSTEM CARTOGRAPHY GROUND-TRUTH SCAN")
+            print("=" * 68)
+            print(f"  Scan Latency:       {res['latency_ms']:.1f}ms")
+            print(f"  Toolchains Found:   {len(res['snapshot']['toolchains'])}")
+            print(f"  Desktop Workspaces: {res['snapshot']['workspaces']['total_projects']}")
+            print(f"  Primary LAN IP:     {res['snapshot']['network']['primary_lan_ip']}")
+            print(f"  Detected Diffs:     {'; '.join(res['diffs'])}")
+            print("=" * 68)
+
+    elif args.action == "evolve":
+        print("[*] Executing 5-phase autopoietic self-evolution cycle...")
+        evo = SelfEvolutionEngine(vault.vault_path)
+        res = evo.run_evolution_cycle(trigger_source="cli")
+        if args.json:
+            print(json.dumps(res, indent=2))
+        else:
+            print("=" * 68)
+            print("🧬 CORTEX-OS // AUTOPOIETIC SELF-EVOLUTION CYCLE")
+            print("=" * 68)
+            print(f"  Latency:            {res['latency_ms']:.1f}ms")
+            print(f"  Health Index:       {res['health']['health_score']}% ({res['health']['status_label']})")
+            print(f"  RAG Chunks Indexed: {res['rag_chunks']}")
+            print(f"  Adapted Weights:    A:{res['weights']['analytic']} P:{res['weights']['pragmatic']} C:{res['weights']['cautious']}")
+            print(f"  Git Backup Status:  {res['git_backup']}")
+            print(f"  Diffs Reconciled:   {'; '.join(res['diffs'])}")
+            print("=" * 68)
+
+    elif args.action == "ledger":
+        evo = SelfEvolutionEngine(vault.vault_path)
+        health = evo.introspect_system_health()
+        print("=" * 68)
+        print("📜 CORTEX-OS // INTROSPECTION & HEALTH AUDIT")
+        print("=" * 68)
+        print(f"  Health Score:  {health['health_score']}% [{health['status_label']}]")
+        print(f"  CPU Load:      {health['metrics']['cpu_percent']}%")
+        print(f"  RAM Usage:     {health['metrics']['ram_percent']}% ({health['metrics']['ram_available_gb']} GB available)")
+        print(f"  Disk Usage:    {health['metrics']['disk_percent']}%")
+        if health["alerts"]:
+            for a in health["alerts"]:
+                print(f"  ! {a}")
+        else:
+            print("  Alerts:        None (Nominal)")
+        print("=" * 68)
+
+    elif args.action == "synthesize":
+        name = args.title or args.query.strip() or "CustomDevWorkflow"
+        evo = SelfEvolutionEngine(vault.vault_path)
+        res = evo.synthesize_skill(
+            name=name,
+            trigger_phrases=[f"run {name.lower()}", f"execute {name.lower()}"],
+            steps=[
+                "Verify required toolchains in 05_System_State/Toolchains_and_Compilers.md",
+                "Check workspace directory in 05_System_State/Filesystem_and_Workspaces.md",
+                "Execute governed command sequence and log receipt to Active_Context.md"
+            ]
+        )
+        print(f"[✓] Synthesized new skill: {res['skill_name']} -> {res['path']}")
 
 
 if __name__ == "__main__":

@@ -52,6 +52,11 @@ class ObsidianVault:
         self._last_scan_time: float = 0.0
         self.ensure_vault_structure()
 
+    @property
+    def vault_path(self) -> Path:
+        """Alias for vault_dir for compatibility."""
+        return self.vault_dir
+
     def ensure_vault_structure(self) -> None:
         """Ensures that essential directories and Obsidian config files exist."""
         self.vault_dir.mkdir(parents=True, exist_ok=True)

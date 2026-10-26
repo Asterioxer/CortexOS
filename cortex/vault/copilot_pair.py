@@ -8,6 +8,8 @@ from pathlib import Path
 from cortex.vault.vault_manager import ObsidianVault, get_vault
 from cortex.vault.rag_engine import VaultRAG, get_vault_rag
 from cortex.vault.git_sync import VaultSync, get_vault_sync
+from cortex.vault.system_cartographer import SystemCartographer
+from cortex.vault.evolution_engine import SelfEvolutionEngine
 from cortex.embodiment.system_somatosensory import SystemSomatosensory
 from cortex.governance.sandbox import SandboxRunner
 
@@ -30,6 +32,8 @@ class PairCopilot:
         self.vault = vault or get_vault()
         self.rag = rag or get_vault_rag()
         self.sync = sync or get_vault_sync()
+        self.cartographer = SystemCartographer(self.vault.vault_path)
+        self.evolution = SelfEvolutionEngine(self.vault.vault_path)
         self.somato = somatosensory or SystemSomatosensory()
         self.sandbox = sandbox or SandboxRunner()
 
@@ -52,6 +56,32 @@ class PairCopilot:
             action_executed = {"type": "vault_sync"}
             action_result = res
             user_response = f"Obsidian Vault synchronized: {res.get('message', 'Completed')}."
+
+        # Intent 1b: System Cartography Scan
+        elif any(w in p_lower for w in ["cartography", "scan system", "scan machine", "map system", "probe hardware"]):
+            res = self.cartographer.run_full_cartography_scan()
+            action_executed = {"type": "system_cartography"}
+            action_result = res
+            diff_msg = "; ".join(res.get("diffs", [])) or "Nominal"
+            projs = res.get("snapshot", {}).get("workspaces", {}).get("total_projects", 0)
+            tools_cnt = len(res.get("snapshot", {}).get("toolchains", {}))
+            user_response = f"System Cartography scan complete in {res.get('latency_ms', 0):.1f}ms: Indexed {tools_cnt} toolchains, {projs} desktop projects. Diff: {diff_msg}."
+
+        # Intent 1c: Autonomous Evolution Cycle
+        elif any(w in p_lower for w in ["evolve system", "self evolve", "evolution cycle", "run evolution"]):
+            res = self.evolution.run_evolution_cycle(trigger_source="pair_copilot")
+            action_executed = {"type": "evolution_cycle"}
+            action_result = res
+            h = res.get("health", {})
+            user_response = f"Self-Evolution cycle executed in {res.get('latency_ms', 0):.1f}ms: Health Index {h.get('health_score')}% ({h.get('status_label')}), {res.get('rag_chunks')} RAG knowledge chunks consolidated and committed to Git backup."
+
+        # Intent 1d: Health & Introspection
+        elif any(w in p_lower for w in ["introspect", "system health", "health check", "introspection ledger"]):
+            h = self.evolution.introspect_system_health()
+            action_executed = {"type": "system_health_introspection"}
+            action_result = h
+            m = h.get("metrics", {})
+            user_response = f"System Health: {h.get('health_score')}% ({h.get('status_label')}) | CPU {m.get('cpu_percent')}% | RAM {m.get('ram_percent')}% ({m.get('ram_available_gb')} GB free) | Disk {m.get('disk_percent')}%."
 
         # Intent 2: Vault Search / Query
         elif p_lower.startswith(("search vault", "vault search", "query vault", "ask vault")):
