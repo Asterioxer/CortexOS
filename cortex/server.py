@@ -126,6 +126,29 @@ HTML_DASHBOARD = r"""
             user-select: none;
         }
 
+        /* High-Visibility Custom Cybernetic Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(6, 9, 17, 0.7);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #00e5ff, #0284c7);
+            border-radius: 4px;
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00e5ff;
+            box-shadow: 0 0 14px rgba(0, 229, 255, 0.9);
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #00e5ff rgba(6, 9, 17, 0.7);
+        }
+
         /* Ambient Background Canvas */
         #webgl-bg-canvas {
             position: fixed;
@@ -782,8 +805,8 @@ HTML_DASHBOARD = r"""
             height: 100%;
             overflow-y: auto;
             scroll-behavior: smooth;
-            padding: 28px 36px 120px 36px;
-            gap: 24px;
+            padding: 18px 26px 60px 26px;
+            gap: 16px;
             z-index: 5;
             user-select: text;
         }
@@ -1266,6 +1289,47 @@ HTML_DASHBOARD = r"""
         .btn-restore:hover { background: rgba(239, 68, 68, 0.35); }
 
         /* ==================== 6. EXECUTION & DAEMONS PANE STYLES ==================== */
+        .exec-subnav-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(10, 16, 32, 0.85);
+            padding: 8px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border-panel);
+            overflow-x: auto;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+        .exec-nav-tab {
+            background: rgba(18, 28, 51, 0.7);
+            border: 1px solid var(--border-panel);
+            color: var(--text-dim);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .exec-nav-tab:hover {
+            color: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+            background: rgba(0, 229, 255, 0.12);
+            transform: translateY(-1px);
+        }
+        .exec-nav-tab.active {
+            color: #fff;
+            background: linear-gradient(135deg, rgba(2, 132, 199, 0.5), rgba(0, 229, 255, 0.4));
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 14px rgba(0, 229, 255, 0.4);
+            font-weight: 700;
+        }
+
         .exec-card {
             background: var(--bg-card);
             border: 1px solid var(--border-panel);
@@ -1904,6 +1968,25 @@ HTML_DASHBOARD = r"""
                     </div>
                 </div>
 
+                <!-- Execution Module Quick Navigation Pills -->
+                <div class="exec-subnav-bar">
+                    <button class="exec-nav-tab active" id="btn-exec-view-all" onclick="switchExecutionSubView('all', this)">
+                        <span>🌐</span> Overview (All Modules)
+                    </button>
+                    <button class="exec-nav-tab" id="btn-exec-view-pipeline" onclick="switchExecutionSubView('pipeline', this)">
+                        <span>🌌</span> 9-Stage Pipeline
+                    </button>
+                    <button class="exec-nav-tab" id="btn-exec-view-terminal" onclick="switchExecutionSubView('terminal', this)">
+                        <span>💻</span> Sandboxed Terminal
+                    </button>
+                    <button class="exec-nav-tab" id="btn-exec-view-daemons" onclick="switchExecutionSubView('daemons', this)">
+                        <span>🤖</span> Daemons & Supervisors (4)
+                    </button>
+                    <button class="exec-nav-tab" id="btn-exec-view-processes" onclick="switchExecutionSubView('processes', this)">
+                        <span>🌳</span> Process Topology
+                    </button>
+                </div>
+
                 <!-- 1. The 9-Stage Cognitive Pipeline Architecture Stepper -->
                 <div class="exec-card tilt-card" id="card-pipeline-wrap">
                     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -2009,51 +2092,56 @@ HTML_DASHBOARD = r"""
                 </div>
 
                 <!-- 3. Active Daemons & Background Workers Grid -->
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-                    <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--text-main); display:flex; align-items:center; gap:8px;">
-                        <span>🤖</span> Active Background Daemons & Runtimes
-                    </h3>
-                    <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">4 Autonomous Supervisors</span>
-                </div>
-                <div class="daemons-grid" id="daemons-grid">
-                    <!-- 1. Uvicorn -->
-                    <div class="daemon-card tilt-card">
-                        <div class="daemon-head"><span class="daemon-name">🌐 Web & WS Daemon</span><span class="daemon-badge daemon-running">RUNNING</span></div>
-                        <div class="daemon-metric">PID: <span class="val">32364 (Port 8000)</span></div>
-                        <div class="daemon-metric">CPU: <span class="val">0.0%</span></div>
-                        <div class="daemon-metric">Memory RSS: <span class="val">89.46 MB</span></div>
-                        <div class="daemon-metric">Threads: <span class="val">22</span></div>
-                        <div class="daemon-metric">Status: <span class="val">High Availability Gateway</span></div>
+                <div class="exec-card tilt-card" id="card-daemons-wrap">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--text-main); display:flex; align-items:center; gap:8px;">
+                            <span>🤖</span> Active Background Daemons & Runtimes
+                        </h3>
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <span style="font-size:0.75rem; color:var(--text-dim); font-family:var(--font-mono);">4 Autonomous Supervisors</span>
+                            <button class="btn-subtle" onclick="toggleSectionCollapse('daemons-grid', this)"><span>▾</span> Collapse</button>
+                        </div>
                     </div>
-                    <!-- 2. Ambient Tick -->
-                    <div class="daemon-card tilt-card">
-                        <div class="daemon-head"><span class="daemon-name">⏱️ Ambient Tick Worker</span><span class="daemon-badge daemon-running">ACTIVE</span></div>
-                        <div class="daemon-metric">Frequency: <span class="val">Every 15s</span></div>
-                        <div class="daemon-metric">Last Tick: <span class="val">#0</span></div>
-                        <div class="daemon-metric">Mode: <span class="val">On-Demand Reactive</span></div>
-                        <div class="daemon-metric">Duplex: <span class="val">1 Active WebSocket</span></div>
-                        <div class="daemon-metric">Status: <span class="val">GWA Cognitive Tick Loop</span></div>
-                    </div>
-                    <!-- 3. StallBreaker -->
-                    <div class="daemon-card tilt-card">
-                        <div class="daemon-head"><span class="daemon-name">🛡️ StallBreaker Sentinel</span><span class="daemon-badge daemon-nominal">NOMINAL</span></div>
-                        <div class="daemon-metric">Panic Switch: <span class="val">DISARMED</span></div>
-                        <div class="daemon-metric">Stall Timeout: <span class="val">45.0s Hardware Gate</span></div>
-                        <div class="daemon-metric">Status: <span class="val">Nominal Subsystem Bus</span></div>
-                        <div class="daemon-metric">Circuit Breaker: <span class="val">Armed</span></div>
-                    </div>
-                    <!-- 4. Digital Sleep -->
-                    <div class="daemon-card tilt-card">
-                        <div class="daemon-head"><span class="daemon-name">💤 Sleep Daemon</span><span class="daemon-badge daemon-nominal">STANDBY</span></div>
-                        <div class="daemon-metric">Engrams Stored: <span class="val">22 Atomic Engrams</span></div>
-                        <div class="daemon-metric">Stage 1-4: <span class="val">WAL / Bigram / LoRA</span></div>
-                        <div class="daemon-metric">Scheduler: <span class="val">AC Power & Idle State</span></div>
-                        <div class="daemon-metric">Status: <span class="val">Memory Consolidation</span></div>
+                    <div class="daemons-grid" id="daemons-grid">
+                        <!-- 1. Uvicorn -->
+                        <div class="daemon-card tilt-card">
+                            <div class="daemon-head"><span class="daemon-name">🌐 Web & WS Daemon</span><span class="daemon-badge daemon-running">RUNNING</span></div>
+                            <div class="daemon-metric">PID: <span class="val">32364 (Port 8000)</span></div>
+                            <div class="daemon-metric">CPU: <span class="val">0.0%</span></div>
+                            <div class="daemon-metric">Memory RSS: <span class="val">89.46 MB</span></div>
+                            <div class="daemon-metric">Threads: <span class="val">22</span></div>
+                            <div class="daemon-metric">Status: <span class="val">High Availability Gateway</span></div>
+                        </div>
+                        <!-- 2. Ambient Tick -->
+                        <div class="daemon-card tilt-card">
+                            <div class="daemon-head"><span class="daemon-name">⏱️ Ambient Tick Worker</span><span class="daemon-badge daemon-running">ACTIVE</span></div>
+                            <div class="daemon-metric">Frequency: <span class="val">Every 15s</span></div>
+                            <div class="daemon-metric">Last Tick: <span class="val">#0</span></div>
+                            <div class="daemon-metric">Mode: <span class="val">On-Demand Reactive</span></div>
+                            <div class="daemon-metric">Duplex: <span class="val">1 Active WebSocket</span></div>
+                            <div class="daemon-metric">Status: <span class="val">GWA Cognitive Tick Loop</span></div>
+                        </div>
+                        <!-- 3. StallBreaker -->
+                        <div class="daemon-card tilt-card">
+                            <div class="daemon-head"><span class="daemon-name">🛡️ StallBreaker Sentinel</span><span class="daemon-badge daemon-nominal">NOMINAL</span></div>
+                            <div class="daemon-metric">Panic Switch: <span class="val">DISARMED</span></div>
+                            <div class="daemon-metric">Stall Timeout: <span class="val">45.0s Hardware Gate</span></div>
+                            <div class="daemon-metric">Status: <span class="val">Nominal Subsystem Bus</span></div>
+                            <div class="daemon-metric">Circuit Breaker: <span class="val">Armed</span></div>
+                        </div>
+                        <!-- 4. Digital Sleep -->
+                        <div class="daemon-card tilt-card">
+                            <div class="daemon-head"><span class="daemon-name">💤 Sleep Daemon</span><span class="daemon-badge daemon-nominal">STANDBY</span></div>
+                            <div class="daemon-metric">Engrams Stored: <span class="val">22 Atomic Engrams</span></div>
+                            <div class="daemon-metric">Stage 1-4: <span class="val">WAL / Bigram / LoRA</span></div>
+                            <div class="daemon-metric">Scheduler: <span class="val">AC Power & Idle State</span></div>
+                            <div class="daemon-metric">Status: <span class="val">Memory Consolidation</span></div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 4. Underlying Child Processes & Desktop Applications -->
-                <div class="exec-card tilt-card" style="margin-bottom:40px;">
+                <div class="exec-card tilt-card" id="card-processes-wrap" style="margin-bottom:40px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:10px;">
                         <h3 style="font-size:0.95rem; font-family:var(--font-mono); color:var(--text-main); display:flex; align-items:center; gap:8px;">
                             <span>🌳</span> Underlying Process Topology & Child Subprocesses
@@ -2068,7 +2156,7 @@ HTML_DASHBOARD = r"""
                             <button class="btn-subtle" onclick="loadProcessesTelemetry()"><span>🔄</span> Refresh</button>
                         </div>
                     </div>
-                    <div class="data-table-wrap" style="max-height:360px;">
+                    <div class="data-table-wrap" style="max-height:420px; min-height:220px; overflow-y:auto;">
                         <table class="cortex-table">
                             <thead>
                                 <tr>
@@ -3315,19 +3403,67 @@ HTML_DASHBOARD = r"""
         // ==================== 12. LIVE EXECUTION & DAEMONS MODULE ====================
         let currentProcessTelemetry = { cortex_children: [], desktop_applications: [], system_processes: [] };
         let activeProcessTab = 'cortex';
+        let activeExecutionSubView = 'all';
+
+        function switchExecutionSubView(view, btnEl) {
+            activeExecutionSubView = view;
+            document.querySelectorAll('.exec-nav-tab').forEach(t => t.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+
+            const pCard = document.getElementById('card-pipeline-wrap');
+            const tCard = document.getElementById('card-terminal-wrap');
+            const dCard = document.getElementById('card-daemons-wrap');
+            const prCard = document.getElementById('card-processes-wrap');
+
+            if (view === 'all') {
+                if (pCard) pCard.style.display = 'flex';
+                if (tCard) tCard.style.display = 'flex';
+                if (dCard) dCard.style.display = 'flex';
+                if (prCard) prCard.style.display = 'flex';
+            } else {
+                if (pCard) pCard.style.display = (view === 'pipeline') ? 'flex' : 'none';
+                if (tCard) tCard.style.display = (view === 'terminal') ? 'flex' : 'none';
+                if (dCard) dCard.style.display = (view === 'daemons') ? 'flex' : 'none';
+                if (prCard) prCard.style.display = (view === 'processes') ? 'flex' : 'none';
+            }
+
+            if (view === 'pipeline') {
+                const b = document.getElementById('pipeline-card-body');
+                if (b) b.style.display = 'block';
+            } else if (view === 'terminal') {
+                const b = document.getElementById('terminal-card-body');
+                if (b) b.style.display = 'flex';
+            } else if (view === 'daemons') {
+                const b = document.getElementById('daemons-grid');
+                if (b) b.style.display = 'grid';
+            } else if (view === 'processes') {
+                renderProcessTable();
+            }
+        }
 
         function toggleSectionCollapse(bodyId, btnEl) {
             const el = document.getElementById(bodyId);
             if (!el) return;
-            const isHidden = (el.style.display === 'none');
-            el.style.display = isHidden ? (bodyId.includes('terminal') ? 'flex' : 'block') : 'none';
-            if (btnEl) btnEl.innerHTML = isHidden ? '<span>▾</span> Collapse' : '<span>▸</span> Expand';
+            const isHidden = (el.style.display === 'none' || window.getComputedStyle(el).display === 'none');
+            if (isHidden) {
+                if (bodyId.includes('terminal')) el.style.display = 'flex';
+                else if (bodyId.includes('daemons')) el.style.display = 'grid';
+                else el.style.display = 'block';
+                if (btnEl) btnEl.innerHTML = '<span>▾</span> Collapse';
+            } else {
+                el.style.display = 'none';
+                if (btnEl) btnEl.innerHTML = '<span>▸</span> Expand';
+            }
         }
 
         async function loadExecutionPane() {
             loadPipelineStepper();
             loadDaemonsTelemetry();
             loadProcessesTelemetry();
+            if (activeExecutionSubView !== 'all') {
+                const btn = document.getElementById(`btn-exec-view-${activeExecutionSubView}`);
+                if (btn) switchExecutionSubView(activeExecutionSubView, btn);
+            }
         }
 
         async function loadPipelineStepper() {
