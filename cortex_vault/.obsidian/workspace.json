@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "01_Architecture/System_Architecture.md",
+                "file": "03_Decisions_ADR/ADR-002-Neural-Voice-Engine.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "System_Architecture"
+              "title": "ADR-002-Neural-Voice-Engine"
             }
           }
         ]
@@ -100,7 +100,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "01_Architecture/System_Architecture.md",
+                "file": "03_Decisions_ADR/ADR-002-Neural-Voice-Engine.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -119,7 +119,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "01_Architecture/System_Architecture.md",
+                "file": "03_Decisions_ADR/ADR-002-Neural-Voice-Engine.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -162,7 +162,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "01_Architecture/System_Architecture.md",
+                "file": "03_Decisions_ADR/ADR-002-Neural-Voice-Engine.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -191,6 +191,7 @@
   },
   "active": "0297fed7573c5239",
   "lastOpenFiles": [
+    "01_Architecture/System_Architecture.md",
     "02_Pair_Programming/Notes_Live_play_verification_of_CortexOS_Obsid.md",
     "00_Index.md",
     "05_System_State/System_Telemetry.md"
