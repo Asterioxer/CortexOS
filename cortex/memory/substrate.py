@@ -1,5 +1,7 @@
 import hashlib
 import json
+import os
+import shutil
 import sqlite3
 import time
 from dataclasses import dataclass, field
@@ -29,19 +31,48 @@ class MemorySubstrate:
         self.db_path = db_path
         self._init_db()
 
-    def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, timeout=30.0)
-        conn.row_factory = sqlite3.Row
+    def _recover_corrupt_db(self):
+        """Self-healing: safely archives malformed database and re-initializes cleanly."""
         try:
-            # Enforce WAL mode for safe concurrent reader/writer concurrency
-            conn.execute("PRAGMA journal_mode=WAL;")
-            conn.execute("PRAGMA synchronous=NORMAL;")
-            conn.execute("PRAGMA busy_timeout=30000;")
-        except sqlite3.OperationalError:
+            if os.path.exists(self.db_path):
+                corrupt_bak = f"{self.db_path}.corrupt.{int(time.time())}"
+                shutil.copy2(self.db_path, corrupt_bak)
+                for ext in ["", "-wal", "-shm"]:
+                    f = self.db_path + ext
+                    if os.path.exists(f):
+                        try:
+                            os.remove(f)
+                        except Exception:
+                            pass
+        except Exception:
             pass
-        return conn
+
+    def _get_connection(self) -> sqlite3.Connection:
+        try:
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            conn.row_factory = sqlite3.Row
+            try:
+                # Enforce WAL mode for safe concurrent reader/writer concurrency
+                conn.execute("PRAGMA journal_mode=WAL;")
+                conn.execute("PRAGMA synchronous=NORMAL;")
+                conn.execute("PRAGMA busy_timeout=30000;")
+            except sqlite3.OperationalError:
+                pass
+            return conn
+        except sqlite3.DatabaseError:
+            self._recover_corrupt_db()
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            conn.row_factory = sqlite3.Row
+            return conn
 
     def _init_db(self):
+        try:
+            self._create_schema()
+        except sqlite3.DatabaseError:
+            self._recover_corrupt_db()
+            self._create_schema()
+
+    def _create_schema(self):
         with self._get_connection() as conn:
             cursor = conn.cursor()
             # 1. Tier 1: Raw lossless episodic events
@@ -135,19 +166,28 @@ class MemorySubstrate:
         outcome: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None
     ) -> int:
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT INTO raw_episodes 
-                (timestamp, tick_id, event_type, input_payload, thought_trace, action_taken, outcome, metadata_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                time.time(), tick_id, event_type,
-                input_payload or "", thought_trace or "", action_taken or "",
-                outcome or "", json.dumps(metadata or {})
-            ))
-            conn.commit()
-            return cursor.lastrowid
+        for attempt in range(2):
+            try:
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT INTO raw_episodes 
+                        (timestamp, tick_id, event_type, input_payload, thought_trace, action_taken, outcome, metadata_json)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        time.time(), tick_id, event_type,
+                        input_payload or "", thought_trace or "", action_taken or "",
+                        outcome or "", json.dumps(metadata or {})
+                    ))
+                    conn.commit()
+                    return cursor.lastrowid
+            except sqlite3.DatabaseError:
+                if attempt == 0:
+                    self._recover_corrupt_db()
+                    self._init_db()
+                else:
+                    return -1
+        return -1
 
     # --- Tier 2 Operations: Bi-Temporal Graph & Engrams ---
     def add_engram(
@@ -309,7 +349,8 @@ class MemorySubstrate:
             conn.commit()
 
     def get_all_skills(self) -> List[Dict[str, Any]]:
-        """Returns all crystallized procedural skills from the registry."""
+        """Returns all crystallized procedural skills from the registry, auto-seeding library files if empty."""
+        skills = []
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -317,7 +358,47 @@ class MemorySubstrate:
                 FROM procedural_skills
                 ORDER BY reusability_score DESC, created_at DESC
             """)
-            return [dict(row) for row in cursor.fetchall()]
+            skills = [dict(row) for row in cursor.fetchall()]
+
+        if not skills:
+            lib_dir = Path("cortex/skills/library")
+            if lib_dir.exists():
+                for p in lib_dir.glob("*.py"):
+                    if p.name.startswith("_"):
+                        continue
+                    name = p.stem
+                    try:
+                        content = p.read_text(encoding="utf-8")
+                        doc = ""
+                        if '"""' in content:
+                            doc = content.split('"""')[1].strip()
+                        elif "'''" in content:
+                            doc = content.split("'''")[1].strip()
+                        else:
+                            doc = f"Procedural skill tool {name}."
+                        
+                        score = 9
+                        pamphlet = f"ATLAS Pamphlet for {name}: Verified system automation routine."
+                        with self._get_connection() as conn:
+                            cursor = conn.cursor()
+                            cursor.execute("""
+                                INSERT OR REPLACE INTO procedural_skills
+                                (name, docstring, file_path, reusability_score, atlas_pamphlet, created_at)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            """, (name, doc[:300], str(p.as_posix()), score, pamphlet, time.time()))
+                            conn.commit()
+                    except Exception:
+                        pass
+                with self._get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        SELECT name, docstring, file_path, reusability_score, atlas_pamphlet, created_at
+                        FROM procedural_skills
+                        ORDER BY reusability_score DESC, created_at DESC
+                    """)
+                    skills = [dict(row) for row in cursor.fetchall()]
+
+        return skills
 
     # --- Context & Hybrid Retrieval ---
     async def retrieve_hybrid_context(self, queries: List[str]) -> str:

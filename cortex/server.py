@@ -7,8 +7,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
+from fastapi.responses import HTMLResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -672,6 +672,70 @@ HTML_DASHBOARD = r"""
         .btn-send:hover {
             transform: translateY(-1px);
             box-shadow: 0 6px 20px rgba(14, 165, 233, 0.5);
+        }
+        .btn-mic {
+            background: rgba(18, 28, 51, 0.85);
+            border: 1px solid var(--border-panel);
+            color: var(--accent-cyan);
+            width: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .btn-mic:hover {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 14px rgba(0, 229, 255, 0.3);
+            transform: scale(1.05);
+        }
+        .btn-mic.listening {
+            background: rgba(239, 68, 68, 0.25);
+            border-color: var(--accent-red);
+            color: #fff;
+            animation: micPulse 1.2s infinite ease-in-out;
+        }
+        @keyframes micPulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .btn-voice-bubble {
+            background: rgba(0, 229, 255, 0.12);
+            border: 1px solid rgba(0, 229, 255, 0.35);
+            color: var(--accent-cyan);
+            border-radius: 4px;
+            padding: 3px 9px;
+            font-size: 0.72rem;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 8px;
+            transition: all 0.15s ease;
+        }
+        .btn-voice-bubble:hover {
+            background: rgba(0, 229, 255, 0.25);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+        }
+        .btn-persp-voice {
+            background: rgba(0, 229, 255, 0.1);
+            border: 1px solid rgba(0, 229, 255, 0.25);
+            color: var(--accent-cyan);
+            border-radius: 3px;
+            padding: 1px 6px;
+            font-size: 0.65rem;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            margin-left: 8px;
+            transition: all 0.15s ease;
+        }
+        .btn-persp-voice:hover {
+            background: rgba(0, 229, 255, 0.28);
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
         }
 
         /* Cognitive Stage Sidebar / Inspector */
@@ -1464,6 +1528,7 @@ HTML_DASHBOARD = r"""
                 </select>
                 <button id="btn-voice-toggle" onclick="toggleVoiceSpeech()" style="background:transparent; border:none; color:var(--accent-cyan); cursor:pointer; font-size:0.85rem;" title="Toggle Speech Output">🔊</button>
                 <button id="btn-voice-bargein" onclick="bargeInStopVoice()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:var(--accent-red); cursor:pointer; font-size:0.68rem; font-weight:700; border-radius:3px; padding:2px 6px;" title="Instant Sub-10ms Barge-In (Stop Speaking)">HALT</button>
+                <button id="btn-voice-greet" onclick="triggerSystemGreeting()" style="background:rgba(0,229,255,0.12); border:1px solid rgba(0,229,255,0.35); color:var(--accent-cyan); cursor:pointer; font-size:0.68rem; font-weight:700; border-radius:3px; padding:2px 7px;" title="Interactive Voice Welcome">👋 Greet</button>
             </div>
             <button class="btn-ambient" id="btn-ambient" onclick="toggleAmbient()">AMBIENT: OFF</button>
             <button class="btn-sleep" onclick="triggerSleep()">DIGITAL SLEEP</button>
@@ -1523,7 +1588,10 @@ HTML_DASHBOARD = r"""
                     </div>
 
                     <div class="chat-input-bar">
-                        <input type="text" class="chat-input" id="chat-input" placeholder="Ask CortexOS or assign a task (e.g. 'tell me about my system', 'which song is playing?')..." onkeydown="if(event.key==='Enter') sendMessage()">
+                        <button id="btn-mic-toggle" class="btn-mic" onclick="toggleVoiceRecognition()" title="Voice Input (Click or Hold to Speak with Microphone)">
+                            <span id="mic-icon">🎙️</span>
+                        </button>
+                        <input type="text" class="chat-input" id="chat-input" placeholder="Ask CortexOS or speak with your mic (e.g. 'tell me about my system', 'which song is playing?')..." onkeydown="if(event.key==='Enter') sendMessage()">
                         <button class="btn-send" onclick="sendMessage()">Send</button>
                     </div>
                 </section>
@@ -2806,7 +2874,12 @@ HTML_DASHBOARD = r"""
             const container = document.getElementById('chat-messages');
             const div = document.createElement('div');
             div.className = 'message-bubble msg-cortex';
-            div.innerHTML = `<div>${formatMarkdown(data.response)}</div>`;
+            div.innerHTML = `<div>${formatMarkdown(data.response)}</div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+                <button class="btn-voice-bubble" onclick="playVoiceAudio(this)" data-text="${encodeURIComponent(data.response)}" data-persona="${data.persona || ''}">
+                    <span>🔊</span> Speak
+                </button>
+            </div>`;
             
             if (data.candidates && data.candidates.length > 0) {
                 const thoughtDetails = document.createElement('details');
@@ -2817,7 +2890,14 @@ HTML_DASHBOARD = r"""
                         let badgeClass = 'persp-analytic';
                         if (perspLower.includes('pragmatic')) badgeClass = 'persp-pragmatic';
                         else if (perspLower.includes('cautious')) badgeClass = 'persp-cautious';
-                        return `<div style="margin-top:4px;"><span class="persp-badge ${badgeClass}">${escapeHtml(c.perspective)}</span> ${escapeHtml(c.thought_text)} <b style="color:var(--accent-cyan);">(${c.score > 0 ? '+' : ''}${c.score})</b></div>`;
+                        return `<div style="margin-top:5px; display:flex; align-items:flex-start; justify-content:space-between; gap:6px;">
+                            <div>
+                                <span class="persp-badge ${badgeClass}">${escapeHtml(c.perspective)}</span>
+                                <span>${escapeHtml(c.thought_text)}</span>
+                                <b style="color:var(--accent-cyan);">(${c.score > 0 ? '+' : ''}${c.score})</b>
+                            </div>
+                            <button class="btn-persp-voice" onclick="playPerspectiveVoice('${escapeHtml(c.perspective)}', '${escapeHtml(c.thought_text)}', event)" title="Hear ${escapeHtml(c.perspective)} agent voice">🗣️</button>
+                        </div>`;
                     }).join('');
                 div.appendChild(thoughtDetails);
             }
@@ -2830,6 +2910,11 @@ HTML_DASHBOARD = r"""
 
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
+
+            // Auto-speak response if voice speech is active
+            if (voiceSpeechEnabled && data.response && data.speak !== false) {
+                playVoiceAudioForText(data.response, data.persona);
+            }
         }
 
         function renderHoldCard(data) {
@@ -3495,6 +3580,217 @@ HTML_DASHBOARD = r"""
 
         // ==================== VOICE PERSONA & BARGE-IN ====================
         let voiceSpeechEnabled = true;
+        let currentPlayingAudio = null;
+        let isVoiceSpeaking = false;
+        let recognition = null;
+        let isRecognizing = false;
+
+        function stopCurrentVoiceAudio() {
+            if (currentPlayingAudio) {
+                try {
+                    currentPlayingAudio.pause();
+                    currentPlayingAudio.currentTime = 0;
+                } catch (e) {}
+                currentPlayingAudio = null;
+            }
+            if (window.speechSynthesis) {
+                try { window.speechSynthesis.cancel(); } catch (e) {}
+            }
+            isVoiceSpeaking = false;
+            const icon = document.getElementById('voice-status-icon');
+            if (icon) icon.innerText = voiceSpeechEnabled ? '🎙️' : '🔇';
+        }
+
+        function cleanTextForSpeech(text) {
+            if (!text) return '';
+            return text
+                .replace(/```[\s\S]*?```/g, ' [Code executed in background] ')
+                .replace(/`([^`]+)`/g, '$1')
+                .replace(/https?:\/\/\S+/g, '')
+                .replace(/file:\/\/\/\S+/g, '')
+                .replace(/^[*#-]+\s+/gm, '')
+                .replace(/[*_]{1,3}([^*_]+)[*_]{1,3}/g, '$1')
+                .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        async function playVoiceAudioForText(text, persona) {
+            if (!voiceSpeechEnabled) return;
+            const clean = cleanTextForSpeech(text);
+            if (!clean) return;
+
+            stopCurrentVoiceAudio();
+
+            const targetPersona = persona || document.getElementById('voice-persona-select')?.value || 'jarvis';
+            const audioUrl = `/api/voice/audio?text=${encodeURIComponent(clean)}&persona=${encodeURIComponent(targetPersona)}`;
+
+            const icon = document.getElementById('voice-status-icon');
+            if (icon) icon.innerText = '🗣️';
+            isVoiceSpeaking = true;
+
+            try {
+                const audio = new Audio(audioUrl);
+                currentPlayingAudio = audio;
+
+                audio.onplay = () => {
+                    isVoiceSpeaking = true;
+                    if (icon) icon.innerText = '🗣️';
+                };
+                audio.onended = () => {
+                    stopCurrentVoiceAudio();
+                };
+                audio.onerror = () => {
+                    // Fall back to Web Speech Synthesis API
+                    speakWebSpeechSynthesis(clean, targetPersona);
+                };
+
+                await audio.play();
+            } catch (err) {
+                // Autoplay policy or fetch error - fall back to Web Speech Synthesis API
+                speakWebSpeechSynthesis(clean, targetPersona);
+            }
+        }
+
+        function speakWebSpeechSynthesis(cleanText, persona) {
+            if (!window.speechSynthesis) {
+                stopCurrentVoiceAudio();
+                return;
+            }
+            window.speechSynthesis.cancel();
+
+            const utter = new SpeechSynthesisUtterance(cleanText);
+            const voices = window.speechSynthesis.getVoices();
+            let selectedVoice = null;
+            const p = (persona || '').toLowerCase();
+
+            if (p.includes('jarvis') || p.includes('analytic')) {
+                selectedVoice = voices.find(v => (v.lang === 'en-GB' || v.lang.startsWith('en')) && (v.name.includes('Ryan') || v.name.includes('George') || v.name.includes('David') || v.name.includes('Oliver') || v.name.includes('Male')));
+                utter.rate = 1.02;
+                utter.pitch = 0.95;
+            } else if (p.includes('friday') || p.includes('cautious')) {
+                selectedVoice = voices.find(v => (v.name.includes('Ava') || v.name.includes('Zira') || v.name.includes('Jenny') || (v.lang.startsWith('en') && v.name.includes('Female'))));
+                utter.rate = 1.0;
+                utter.pitch = 1.06;
+            } else if (p.includes('pragmatic') || p.includes('guy')) {
+                selectedVoice = voices.find(v => (v.name.includes('Guy') || v.name.includes('Christopher') || (v.lang === 'en-US' && v.name.includes('Male'))));
+                utter.rate = 1.08;
+                utter.pitch = 1.0;
+            }
+
+            if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+            }
+            if (selectedVoice) utter.voice = selectedVoice;
+
+            utter.onstart = () => {
+                isVoiceSpeaking = true;
+                const icon = document.getElementById('voice-status-icon');
+                if (icon) icon.innerText = '🗣️';
+            };
+            utter.onend = () => {
+                stopCurrentVoiceAudio();
+            };
+            utter.onerror = () => {
+                stopCurrentVoiceAudio();
+            };
+
+            window.speechSynthesis.speak(utter);
+        }
+
+        function playVoiceAudio(btn) {
+            const rawText = decodeURIComponent(btn.getAttribute('data-text') || '');
+            const persona = btn.getAttribute('data-persona') || '';
+            playVoiceAudioForText(rawText, persona);
+        }
+
+        function playPerspectiveVoice(perspective, thoughtText, event) {
+            if (event) event.stopPropagation();
+            let persona = 'jarvis';
+            const pLower = perspective.toLowerCase();
+            if (pLower.includes('analytic')) persona = 'edith';
+            else if (pLower.includes('pragmatic')) persona = 'guy';
+            else if (pLower.includes('cautious')) persona = 'friday';
+
+            const spoken = `${perspective} Agent proposal: ${thoughtText}`;
+            playVoiceAudioForText(spoken, persona);
+        }
+
+        function toggleVoiceRecognition() {
+            const micBtn = document.getElementById('btn-mic-toggle');
+            const micIcon = document.getElementById('mic-icon');
+            const input = document.getElementById('chat-input');
+
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                alert('Web Speech Recognition is not supported in this browser. Please use Google Chrome, Edge, or Brave.');
+                return;
+            }
+
+            if (isRecognizing && recognition) {
+                recognition.stop();
+                return;
+            }
+
+            try {
+                recognition = new SpeechRec();
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                recognition.lang = 'en-US';
+
+                recognition.onstart = () => {
+                    isRecognizing = true;
+                    if (micBtn) micBtn.classList.add('listening');
+                    if (micIcon) micIcon.innerText = '🔴';
+                    if (input) input.placeholder = 'Listening... Speak your command to CortexOS now.';
+                    stopCurrentVoiceAudio();
+                    bargeInStopVoice();
+                };
+
+                recognition.onresult = (event) => {
+                    let transcript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                    if (input) input.value = transcript;
+                };
+
+                recognition.onerror = (event) => {
+                    console.warn('Speech recognition error:', event.error);
+                    isRecognizing = false;
+                    if (micBtn) micBtn.classList.remove('listening');
+                    if (micIcon) micIcon.innerText = '🎙️';
+                    if (input) input.placeholder = "Ask CortexOS or speak with your mic (e.g. 'tell me about my system', 'which song is playing?')...";
+                };
+
+                recognition.onend = () => {
+                    isRecognizing = false;
+                    if (micBtn) micBtn.classList.remove('listening');
+                    if (micIcon) micIcon.innerText = '🎙️';
+                    if (input) {
+                        input.placeholder = "Ask CortexOS or speak with your mic (e.g. 'tell me about my system', 'which song is playing?')...";
+                        const query = input.value.trim();
+                        if (query.length > 2) {
+                            sendMessage();
+                        }
+                    }
+                };
+
+                recognition.start();
+            } catch (e) {
+                console.error('Failed to start speech recognition:', e);
+                isRecognizing = false;
+                if (micBtn) micBtn.classList.remove('listening');
+                if (micIcon) micIcon.innerText = '🎙️';
+            }
+        }
+
+        function triggerSystemGreeting() {
+            const greeting = "Greetings Soham. CortexOS is synchronized and monitoring your laptop. All memory and cognitive subsystems are ready. How can I assist you?";
+            appendMessage(greeting, 'msg-cortex');
+            playVoiceAudioForText(greeting, document.getElementById('voice-persona-select')?.value || 'jarvis');
+        }
 
         async function switchVoicePersona(persona) {
             try {
@@ -3506,6 +3802,7 @@ HTML_DASHBOARD = r"""
                 const d = await res.json();
                 if (d.status === 'SUCCESS') {
                     appendMessage(`🎙️ Neural voice persona switched to **${persona.toUpperCase()}** (${d.description}).`, 'msg-cortex');
+                    playVoiceAudioForText(`Neural voice switched to ${persona}. Systems nominal.`, persona);
                 }
             } catch (e) {
                 console.error('Failed to switch voice persona:', e);
@@ -3513,6 +3810,7 @@ HTML_DASHBOARD = r"""
         }
 
         async function bargeInStopVoice() {
+            stopCurrentVoiceAudio();
             try {
                 await fetch('/api/voice/stop', { method: 'POST' });
                 const icon = document.getElementById('voice-status-icon');
@@ -3525,6 +3823,7 @@ HTML_DASHBOARD = r"""
 
         async function toggleVoiceSpeech() {
             voiceSpeechEnabled = !voiceSpeechEnabled;
+            if (!voiceSpeechEnabled) stopCurrentVoiceAudio();
             try {
                 await fetch('/api/voice/toggle', {
                     method: 'POST',
@@ -3536,6 +3835,9 @@ HTML_DASHBOARD = r"""
                 if (btn) btn.innerText = voiceSpeechEnabled ? '🔊' : '🔈';
                 if (icon) icon.innerText = voiceSpeechEnabled ? '🎙️' : '🔇';
                 appendMessage(`Neural voice speech output is now **${voiceSpeechEnabled ? 'ACTIVE' : 'MUTED'}**.`, 'msg-cortex');
+                if (voiceSpeechEnabled) {
+                    playVoiceAudioForText("Voice output enabled.", document.getElementById('voice-persona-select')?.value || 'jarvis');
+                }
             } catch (e) {}
         }
 
@@ -4033,6 +4335,14 @@ async def deliver_briefing():
         voice_engine.speak(text)
     return {"status": "SUCCESS", "briefing": text, "spoken": voice_engine.enabled}
 
+@app.get("/api/voice/audio")
+async def get_voice_audio(text: str = Query(...), persona: Optional[str] = Query(None)):
+    """Streams synthesized MP3 audio for high-fidelity in-browser playback."""
+    audio_bytes = await voice_engine.synthesize_audio_async(text, persona=persona)
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Could not synthesize speech.")
+    return Response(content=audio_bytes, media_type="audio/mpeg")
+
 
 # ==================== WEBSOCKET STREAMING ====================
 
@@ -4083,6 +4393,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json({
                         "type": "cortex_response",
                         "response": result.user_response,
+                        "speak": voice_engine.enabled,
+                        "persona": voice_engine.active_persona,
                         "candidates": [
                             {"perspective": c.perspective, "thought_text": c.thought_text, "score": c.score}
                             for c in result.candidates
@@ -4108,6 +4420,8 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json({
                         "type": "cortex_response",
                         "response": resumed.user_response,
+                        "speak": voice_engine.enabled,
+                        "persona": voice_engine.active_persona,
                         "action_result": resumed.action_result,
                         "state": {
                             "tick_id": engine.state.tick_id,
@@ -4120,6 +4434,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     await websocket.send_json({
                         "type": "cortex_response",
                         "response": "Action cancelled by human rejection. Workspace remains clean.",
+                        "speak": False,
                         "state": {
                             "tick_id": engine.state.tick_id,
                             "blocks": {k: {"value": b.value} for k, b in wm.blocks.items()}
@@ -4132,7 +4447,9 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         if websocket in active_websockets:
             active_websockets.remove(websocket)
-    except Exception:
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         if websocket in active_websockets:
             active_websockets.remove(websocket)
 

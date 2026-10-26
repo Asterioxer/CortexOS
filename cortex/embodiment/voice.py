@@ -157,6 +157,35 @@ class CortexVoiceEngine:
         if blocking:
             t.join()
 
+    async def synthesize_audio_async(self, text: str, persona: Optional[str] = None) -> bytes:
+        """Synthesizes text into MP3 audio bytes using Edge-TTS."""
+        cleaned = self.clean_text_for_speech(text)
+        if not cleaned:
+            return b""
+        target_persona = persona or self.active_persona
+        p_config = self.PERSONAS.get(target_persona, self.PERSONAS["jarvis"])
+        voice = p_config["voice"]
+        rate = p_config["rate"]
+        pitch = p_config["pitch"]
+        try:
+            import edge_tts
+            comm = edge_tts.Communicate(cleaned, voice, rate=rate, pitch=pitch)
+            data = b""
+            async for chunk in comm.stream():
+                if chunk["type"] == "audio":
+                    data += chunk["data"]
+            return data
+        except Exception:
+            return b""
+
+    def synthesize_audio_bytes(self, text: str, persona: Optional[str] = None) -> bytes:
+        """Synchronous helper to get synthesized MP3 audio bytes."""
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(self.synthesize_audio_async(text, persona))
+        finally:
+            loop.close()
+
     def _speak_worker(self, text: str, persona_key: str):
         with self._playback_lock:
             self._stop_requested.clear()
@@ -200,11 +229,19 @@ class CortexVoiceEngine:
             except Exception:
                 # 2. Resilient Offline Fallback: Windows SAPI
                 try:
+                    import pythoncom
+                    pythoncom.CoInitialize()
                     import win32com.client
                     speaker = win32com.client.Dispatch("SAPI.SpVoice")
                     speaker.Speak(text)
                 except Exception:
                     pass
+                finally:
+                    try:
+                        import pythoncom
+                        pythoncom.CoUninitialize()
+                    except Exception:
+                        pass
             finally:
                 self._is_speaking = False
 
