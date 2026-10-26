@@ -148,8 +148,8 @@ HTML_DASHBOARD = r"""
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: #060911;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #080c16 radial-gradient(circle at 50% 0%, rgba(14, 28, 54, 0.45) 0%, rgba(8, 12, 22, 1) 85%);
             color: var(--text-main);
             height: 100vh;
             display: flex;
@@ -159,38 +159,9 @@ HTML_DASHBOARD = r"""
             user-select: none;
         }
 
-        /* High-Visibility Custom Cybernetic Scrollbars */
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: rgba(6, 9, 17, 0.7);
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(180deg, #00e5ff, #0284c7);
-            border-radius: 4px;
-            box-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #00e5ff;
-            box-shadow: 0 0 14px rgba(0, 229, 255, 0.9);
-        }
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: #00e5ff rgba(6, 9, 17, 0.7);
-        }
-
-        /* Ambient Background Canvas */
+        /* Ambient Background Canvas (Disabled: Clean static mode for maximum usability) */
         #webgl-bg-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 0;
-            pointer-events: none;
+            display: none !important;
         }
 
         /* Cybernetic Header HUD */
@@ -459,27 +430,17 @@ HTML_DASHBOARD = r"""
             height: 100%;
         }
 
-        /* 3D Holographic Card Tilt Effect */
+        /* Clean Static Card Styling (Simple, Fast, High Usability) */
         .tilt-card {
-            transform-style: preserve-3d;
-            perspective: 1000px;
-            transition: transform 0.12s ease-out, box-shadow 0.2s ease, border-color 0.2s ease;
+            background: var(--bg-card);
+            border: 1px solid var(--border-panel);
+            border-radius: 10px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
             position: relative;
-            overflow: hidden;
         }
-        .tilt-card::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(0, 229, 255, 0.12), transparent 70%);
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-        }
-        .tilt-card:hover::after { opacity: 1; }
         .tilt-card:hover {
-            border-color: var(--border-glow);
-            box-shadow: 0 16px 36px -8px rgba(0, 229, 255, 0.2), 0 0 16px rgba(56, 189, 248, 0.15);
+            border-color: rgba(0, 229, 255, 0.4);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
         }
 
         /* PANE 1: Cognitive Stage */
@@ -1862,10 +1823,26 @@ HTML_DASHBOARD = r"""
                     </div>
                 </section>
                 <aside class="state-inspector">
-                    <!-- 3D Global Workspace Satellite Core Visualizer -->
-                    <div id="stage-3d-box" style="height: 150px; position:relative; border-radius:10px; overflow:hidden; background:rgba(6,9,17,0.7); border:1px solid var(--border-panel); box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
-                        <canvas id="stage-3d-canvas" style="width:100%; height:100%;"></canvas>
-                        <div style="position:absolute; bottom:6px; left:10px; font-size:0.68rem; color:var(--accent-cyan); font-family:var(--font-mono);">GWA Orbit: 3 Perspectives (Analytic, Pragmatic, Cautious)</div>
+                    <!-- Cognitive Perspectives & Telemetry HUD (Clean Static 2D) -->
+                    <div class="tilt-card" style="padding:12px; margin-bottom:12px;">
+                        <div style="font-family:var(--font-mono); font-size:0.75rem; font-weight:700; color:var(--accent-cyan); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>🧠 COGNITIVE PERSPECTIVES</span>
+                            <span class="badge" style="background:rgba(16,185,129,0.15); color:var(--accent-green); font-size:0.65rem;">ONLINE</span>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:6px; font-family:var(--font-mono); font-size:0.72rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(56,189,248,0.08); padding:5px 8px; border-radius:4px; border-left:3px solid var(--accent-blue);">
+                                <span>🔵 Analytic (EDITH)</span>
+                                <span style="color:var(--accent-blue);" id="weight-analytic">W: 0.33</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(16,185,129,0.08); padding:5px 8px; border-radius:4px; border-left:3px solid var(--accent-green);">
+                                <span>🟢 Pragmatic (GUY)</span>
+                                <span style="color:var(--accent-green);" id="weight-pragmatic">W: 0.34</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(245,158,11,0.08); padding:5px 8px; border-radius:4px; border-left:3px solid var(--accent-yellow);">
+                                <span>🟡 Cautious (FRIDAY)</span>
+                                <span style="color:var(--accent-yellow);" id="weight-cautious">W: 0.33</span>
+                            </div>
+                        </div>
                     </div>
 
                     <h3 style="font-size:0.9rem; letter-spacing:0.5px; text-transform:uppercase; color:var(--accent-cyan); font-family:var(--font-mono);">Working Memory</h3>
@@ -1894,10 +1871,16 @@ HTML_DASHBOARD = r"""
                     <button class="btn-action" onclick="loadMemoryPane()"><span>🔄</span> Refresh Blocks</button>
                 </div>
 
-                <!-- 3D Holographic Memory Prisms Header Box -->
-                <div id="memory-3d-box" style="height: 130px; border-radius: 10px; overflow: hidden; background: rgba(6, 9, 17, 0.7); border: 1px solid var(--border-panel); position: relative; box-shadow: inset 0 0 20px rgba(0,0,0,0.8);">
-                    <canvas id="memory-3d-canvas" style="width: 100%; height: 100%;"></canvas>
-                    <div style="position: absolute; top: 8px; left: 14px; font-size: 0.76rem; color: var(--accent-cyan); font-family: var(--font-mono);">3D Holographic Memory Prisms (Character Capacity & Allocation)</div>
+                <!-- Working Memory Allocation Summary (Clean Static 2D) -->
+                <div class="tilt-card" style="padding: 12px 18px; margin-bottom: 14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <div>
+                        <div style="font-family:var(--font-mono); font-size:0.82rem; font-weight:700; color:var(--accent-cyan);">LETTA 4-BLOCK MEMORY SUBSTRATE</div>
+                        <div style="font-size:0.74rem; color:var(--text-dim); margin-top:2px;">In-context self-editing blocks injected into every cognitive tick cycle.</div>
+                    </div>
+                    <div style="display:flex; gap:16px; font-family:var(--font-mono); font-size:0.75rem;">
+                        <span style="color:var(--text-dim);">Allocated: <strong style="color:#fff;" id="mem-total-chars">3,450 / 9,500 chars</strong></span>
+                        <span style="color:var(--text-dim);">Status: <strong style="color:var(--accent-green);">SYNCHRONIZED</strong></span>
+                    </div>
                 </div>
 
                 <div class="mem-grid">
@@ -2658,113 +2641,28 @@ HTML_DASHBOARD = r"""
             }
         }
 
-        // ==================== 2. MASTER THREE.JS ENGINE ====================
-        let bgScene, bgCamera, bgRenderer, bgParticles, bgCoreMesh, bgRingMesh, bgGrid;
-        let mouseX = 0, mouseY = 0, targetRotX = 0, targetRotY = 0;
-
+        // ==================== 2. MASTER ENGINE (CLEAN & STATIC) ====================
         function initBackground3D() {
-            const canvas = document.getElementById('webgl-bg-canvas');
-            bgScene = new THREE.Scene();
-            bgScene.fog = new THREE.FogExp2(0x060911, 0.002);
-
-            bgCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 2000);
-            bgCamera.position.z = 450;
-            bgCamera.position.y = 80;
-
-            bgRenderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true, powerPreference: 'high-performance' });
-            bgRenderer.setSize(window.innerWidth, window.innerHeight);
-            bgRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-
-            bgGrid = new THREE.GridHelper(1600, 40, 0x00e5ff, 0x1e293b);
-            bgGrid.position.y = -180;
-            bgGrid.material.opacity = 0.22;
-            bgGrid.material.transparent = true;
-            bgScene.add(bgGrid);
-
-            const particleCount = 550;
-            const geom = new THREE.BufferGeometry();
-            const positions = new Float32Array(particleCount * 3);
-            for (let i = 0; i < particleCount * 3; i += 3) {
-                positions[i] = (Math.random() - 0.5) * 1400;
-                positions[i + 1] = (Math.random() - 0.5) * 800;
-                positions[i + 2] = (Math.random() - 0.5) * 900;
-            }
-            geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            const pMat = new THREE.PointsMaterial({
-                color: 0x00e5ff,
-                size: 3.0,
-                transparent: true,
-                opacity: 0.65,
-                blending: THREE.AdditiveBlending
-            });
-            bgParticles = new THREE.Points(geom, pMat);
-            bgScene.add(bgParticles);
-
-            const coreGroup = new THREE.Group();
-            coreGroup.position.set(280, 100, -100);
-
-            const icoGeom = new THREE.IcosahedronGeometry(70, 1);
-            const icoMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.35 });
-            bgCoreMesh = new THREE.Mesh(icoGeom, icoMat);
-            coreGroup.add(bgCoreMesh);
-
-            const innerGeom = new THREE.SphereGeometry(38, 20, 20);
-            const innerMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, wireframe: true, transparent: true, opacity: 0.55 });
-            const innerCore = new THREE.Mesh(innerGeom, innerMat);
-            coreGroup.add(innerCore);
-
-            const ringGeom = new THREE.RingGeometry(85, 95, 32);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0xc084fc, side: THREE.DoubleSide, transparent: true, opacity: 0.35, wireframe: true });
-            bgRingMesh = new THREE.Mesh(ringGeom, ringMat);
-            bgRingMesh.rotation.x = Math.PI / 2.5;
-            coreGroup.add(bgRingMesh);
-
-            bgScene.add(coreGroup);
-
+            // Disabled: Clean static dark UI for peak performance, zero GPU drain, and maximum usability
             window.addEventListener('resize', onWindowResize);
-            document.addEventListener('mousemove', onMouseMove);
         }
 
         function onMouseMove(event) {
-            mouseX = (event.clientX - window.innerWidth / 2) * 0.08;
-            mouseY = (event.clientY - window.innerHeight / 2) * 0.08;
+            // Static mode: no mouse parallax needed
         }
 
         function onWindowResize() {
-            if (bgCamera && bgRenderer) {
-                bgCamera.aspect = window.innerWidth / window.innerHeight;
-                bgCamera.updateProjectionMatrix();
-                bgRenderer.setSize(window.innerWidth, window.innerHeight);
-            }
-            if (activeTab === 'stage') onStageResize();
-            else if (activeTab === 'graph') onGraphResize();
-            else if (activeTab === 'memory') onMemoryResize();
+            if (activeTab === 'graph') onGraphResize();
         }
 
         function trigger3DCognitivePulse(entropy) {
-            if (!bgCoreMesh) return;
-            new TWEEN.Tween(bgCoreMesh.scale)
-                .to({ x: 1.35, y: 1.35, z: 1.35 }, 140)
-                .yoyo(true)
-                .repeat(1)
-                .easing(TWEEN.Easing.Quadratic.Out)
-                .start();
-
-            if (entropy > 1.2 && bgCoreMesh.material) {
-                bgCoreMesh.material.color.setHex(0xc084fc);
-                setTimeout(() => { if (bgCoreMesh) bgCoreMesh.material.color.setHex(0x38bdf8); }, 800);
-            }
+            // Static mode: Clean status badges indicate state
         }
 
-        // ==================== 3. COGNITIVE STAGE SATELLITES ====================
-        let stageScene, stageCamera, stageRenderer;
-        let satGroup, satAnalytic, satPragmatic, satCautious;
-        let satAngle = 0;
-
+        // ==================== 3. COGNITIVE STAGE ====================
         function initStage3D() {
-            const canvas = document.getElementById('stage-3d-canvas');
-            if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
+            // Replaced with high-visibility static 2D perspective HUD
+        }
             const w = rect.width || 340;
             const h = rect.height || 150;
 
@@ -3101,14 +2999,13 @@ HTML_DASHBOARD = r"""
         }
 
         window.updateMemoryPrismsFromState = function(blocks) {
-            if (!blocks || memPrisms.length === 0) return;
-            memPrisms.forEach(p => {
-                const b = blocks[p.userData.name];
-                if (b && b.value) {
-                    const ratio = Math.min(2.5, Math.max(0.4, b.value.length / 500));
-                    p.scale.y = ratio;
-                }
-            });
+            if (!blocks) return;
+            let totalChars = 0;
+            for (const k in blocks) {
+                if (blocks[k] && blocks[k].value) totalChars += blocks[k].value.length;
+            }
+            const el = document.getElementById('mem-total-chars');
+            if (el) el.innerText = `${totalChars.toLocaleString()} / 9,500 chars`;
         };
 
         // ==================== UNIFIED HIGH-FRAMERATE ANIMATION LOOP ====================
@@ -3116,77 +3013,18 @@ HTML_DASHBOARD = r"""
             requestAnimationFrame(masterRenderLoop);
             TWEEN.update();
 
-            if (bgParticles) {
-                bgParticles.rotation.y += 0.0006;
-                bgParticles.rotation.x += 0.0003;
-            }
-            if (bgCoreMesh) {
-                bgCoreMesh.rotation.x += 0.008;
-                bgCoreMesh.rotation.y += 0.012;
-            }
-            if (bgRingMesh) {
-                bgRingMesh.rotation.z += 0.015;
-            }
-
-            targetRotX += (mouseX - targetRotX) * 0.04;
-            targetRotY += (mouseY - targetRotY) * 0.04;
-            if (bgCamera) {
-                bgCamera.position.x = targetRotX * 0.5;
-                bgCamera.position.y = 80 - targetRotY * 0.3;
-                bgCamera.lookAt(0, 0, 0);
-            }
-            if (bgRenderer && bgScene && bgCamera) {
-                bgRenderer.render(bgScene, bgCamera);
-            }
-
-            if (activeTab === 'stage') {
-                satAngle += 0.025;
-                const radius = 42;
-                if (satAnalytic) satAnalytic.position.set(radius * Math.cos(satAngle), 8 * Math.sin(satAngle * 2), radius * Math.sin(satAngle));
-                if (satPragmatic) satPragmatic.position.set(radius * Math.cos(satAngle + 2.09), 8 * Math.sin((satAngle + 2.09) * 2), radius * Math.sin(satAngle + 2.09));
-                if (satCautious) satCautious.position.set(radius * Math.cos(satAngle + 4.18), 8 * Math.sin((satAngle + 4.18) * 2), radius * Math.sin(satAngle + 4.18));
-                if (satGroup) satGroup.rotation.y += 0.005;
-                if (stageRenderer && stageScene && stageCamera) {
-                    stageRenderer.render(stageScene, stageCamera);
-                }
-            } else if (activeTab === 'graph') {
+            // Only render 3D if explicitly inspecting the Bi-Temporal Graph
+            if (activeTab === 'graph') {
                 if (graphControls) graphControls.update();
                 if (graphRenderer && graphScene && graphCamera) {
                     graphRenderer.render(graphScene, graphCamera);
                 }
-            } else if (activeTab === 'memory') {
-                memPrisms.forEach((p, idx) => {
-                    p.rotation.y += 0.015;
-                    p.position.y = Math.sin(Date.now() * 0.003 + idx) * 3;
-                });
-                if (memRenderer && memScene && memCamera) {
-                    memRenderer.render(memScene, memCamera);
-                }
             }
         }
 
-        // ==================== 6. EVENT-DELEGATED 3D CARD TILT ====================
+        // ==================== 6. CLEAN STATIC CARD STYLING ====================
         function initDelegatedTiltPhysics() {
-            document.addEventListener('pointermove', (e) => {
-                const card = e.target.closest('.tilt-card');
-                if (!card) return;
-                const rect = card.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                const centerX = rect.width / 2;
-                const centerY = rect.height / 2;
-                const rotX = ((y - centerY) / centerY) * -8;
-                const rotY = ((x - centerX) / centerX) * 8;
-                card.style.setProperty('--mouse-x', `${(x / rect.width * 100).toFixed(1)}%`);
-                card.style.setProperty('--mouse-y', `${(y / rect.height * 100).toFixed(1)}%`);
-                card.style.transform = `perspective(1000px) rotateX(${rotX.toFixed(2)}deg) rotateY(${rotY.toFixed(2)}deg) scale3d(1.01, 1.01, 1.01)`;
-            });
-
-            document.addEventListener('pointerout', (e) => {
-                const card = e.target.closest('.tilt-card');
-                if (!card || card.contains(e.relatedTarget)) return;
-                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
-            });
+            // Disabled: Clean static cards for peak responsiveness and zero click displacement
         }
 
         // ==================== 7. CHAT, THINKING INDICATOR & MARKDOWN ====================
