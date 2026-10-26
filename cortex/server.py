@@ -3899,12 +3899,14 @@ async def get_dashboard():
 async def get_status():
     wm = stack["wm"]
     engine = stack["engine"]
+    somato = engine.somato
     return {
         "tick_id": engine.state.tick_id,
         "entropy": 1.0,
         "temperature": engine.state.current_temperature,
         "blocks": {k: {"label": b.label, "value": b.value, "limit": b.char_limit} for k, b in wm.blocks.items()},
-        "policy": stack["policy"].cedar_path
+        "policy": stack["policy"].cedar_path,
+        "telemetry": somato.get_hardware_telemetry()
     }
 
 # Live Media Playback & Controls

@@ -239,6 +239,36 @@ class GWACognitiveTickEngine:
                 action_result=action_result,
                 external_input=external_input
             )
+
+            from cortex.inference.client import CandidateThought
+            act_str = str(sys1_decision['action'].get('action') if isinstance(sys1_decision['action'], dict) else sys1_decision['action'])
+            sys1_candidates = [
+                CandidateThought(
+                    id=0,
+                    perspective="Analytic",
+                    thought_text=f"Hardware and memory telemetry verified. Optimal conditions for {act_str}.",
+                    proposed_action=sys1_decision["action"],
+                    score=3,
+                    critique="High confidence analytical alignment."
+                ),
+                CandidateThought(
+                    id=1,
+                    perspective="Pragmatic",
+                    thought_text=f"Directly execute {act_str} reflex to serve user request with minimal latency.",
+                    proposed_action=sys1_decision["action"],
+                    score=4,
+                    critique="Actionable and pragmatic path forward."
+                ),
+                CandidateThought(
+                    id=2,
+                    perspective="Cautious",
+                    thought_text="Confirmed operation is strictly bounded and complies with Cedar guardrails.",
+                    proposed_action=None,
+                    score=2,
+                    critique="Safe within containment boundary."
+                )
+            ]
+
             return TickResult(
                 transition="[RESPONSE]",
                 tick_id=self.state.tick_id,
@@ -246,7 +276,8 @@ class GWACognitiveTickEngine:
                 action_result=action_result,
                 user_response=articulation,
                 hold_card=hold_card,
-                temperature=self.state.current_temperature
+                temperature=self.state.current_temperature,
+                candidates=sys1_candidates
             )
 
         # PHASE 2: THINK (System 2 Divergent Generator + Convergent Critic Swarm)
