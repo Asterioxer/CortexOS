@@ -22,7 +22,7 @@ Comprehensive registry of developer compilers, language runtimes, package manage
 | **`go`** | `go version go1.26.4 windows/amd64` | `C:\Program Files\Go\bin\go.EXE` |
 | **`java`** | `java 21.0.9 2025-10-21 LTS` | `C:\Program Files\Common Files\Oracle\Java\javapath\java.EXE` |
 | **`javac`** | `javac 21.0.9` | `C:\Program Files\Common Files\Oracle\Java\javapath\javac.EXE` |
-| **`mpv`** | `mpv v0.41.0-744-g304426c39 Copyright Â© 2000-2026 mpv/MPlayer/mplayer2 projects` | `C:\Program Files\mpv\mpv.COM` |
+| **`mpv`** | `mpv v0.41.0-744-g304426c39 Copyright © 2000-2026 mpv/MPlayer/mplayer2 projects` | `C:\Program Files\mpv\mpv.COM` |
 | **`node`** | `v24.11.1` | `C:\Program Files\nodejs\node.EXE` |
 | **`npm`** | `11.6.2` | `C:\Program Files\nodejs\npm.CMD` |
 | **`python`** | `Python 3.12.1` | `C:\Users\soham\.pyenv\pyenv-win\shims\python.BAT` |

@@ -41,6 +41,20 @@
         "a": 1,
         "rgb": 65280
       }
+    },
+    {
+      "query": "path:06_Self_Evolution",
+      "color": {
+        "a": 1,
+        "rgb": 12451839
+      }
+    },
+    {
+      "query": "path:07_Workspace_Index",
+      "color": {
+        "a": 1,
+        "rgb": 16763904
+      }
     }
   ],
   "collapse-display": false,
@@ -53,6 +67,6 @@
   "repelStrength": 10,
   "linkStrength": 1,
   "linkDistance": 250,
-  "scale": 0.2588386562181609,
+  "scale": 0.5359795996225893,
   "close": false
 }

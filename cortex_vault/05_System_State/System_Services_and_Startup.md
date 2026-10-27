@@ -18,7 +18,7 @@ Complete ground truth for background daemon lifecycle, boot hooks, and cross-pla
   - **Registry Key**: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` -> `CortexOS_Daemon` pointing to `wscript.exe cortex_daemon_startup.vbs`.
   - **Startup Script**: `cortex_daemon_startup.vbs` located in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`.
 - **Silent Headless Spawning**: Spawns `.venv\Scripts\pythonw.exe cortex/server.py` with `WshShell.Run(..., 0, False)` to ensure zero intrusive terminal popups during Windows logon.
-- **LAN Binding**: Binds to `0.0.0.0:8000`, broadcasting across primary Wi-Fi (`172.16.208.224`).
+- **LAN Binding**: Binds to `0.0.0.0:8000`, broadcasting across primary Wi-Fi (`10.234.160.224`, dynamically detected via `cortex/system_state/network.py`).
 
 ## 🐧 Linux Systemd & XDG Autostart
 - **Service Unit**: `~/.config/systemd/user/cortexos.service` (`WantedBy=default.target`, `Restart=always`).

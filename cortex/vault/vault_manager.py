@@ -206,7 +206,15 @@ class ObsidianVault:
         fm_yaml = yaml.dump(fm, default_flow_style=False, sort_keys=False).strip()
         full_text = f"---\n{fm_yaml}\n---\n\n{content.strip()}\n"
 
-        target_file.write_text(full_text, encoding="utf-8")
+        # Resilient write with retry against transient Windows file watcher locks
+        for attempt in range(3):
+            try:
+                target_file.write_text(full_text, encoding="utf-8")
+                break
+            except OSError:
+                if attempt == 2:
+                    raise
+                time.sleep(0.05)
         note = self.parse_note_file(target_file)
         self._notes_cache[note.rel_path] = note
         return note
@@ -319,6 +327,13 @@ class ObsidianVault:
 ## Current Milestone: {active_goal}
 - **Timestamp**: {now_str}
 {details_str}
+
+## Active Subsystem Architecture
+- **Knowledge Vault**: 32 authoritative markdown notes across 7 domains with hybrid TF-IDF & wikilink RAG.
+- **Local Neural Engine**: Ollama active on `http://127.0.0.1:11434` with CUDA acceleration on NVIDIA RTX 3050 Laptop GPU (4 GB GDDR6).
+- **Host Hardware Posture**: Dell G15 (Intel Core i5-12500H 12C/16T, 24 GB DDR5 @ 4800 MT/s, Micron 2450 NVMe 512GB).
+- **Primary Workspaces**: 48 local desktop repositories indexed in [[07_Workspace_Index/Desktop_Workspace_Master_Index|Desktop Workspace Master Index]].
+- **Governance**: Cedar formal containment rules ([`config/policies.cedar`](file:///c:/Users/soham/Desktop/self-conscious/config/policies.cedar)) with Git shadow rollback checkpoints.
 
 ## Live Memory Substrate
 - Synchronized with CortexOS GWA cognitive tick and pair programming copilot.

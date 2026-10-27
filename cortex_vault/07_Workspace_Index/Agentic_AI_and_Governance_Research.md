@@ -1,4 +1,16 @@
-# Agentic AI & Governance Research Workspace
+---
+title: "Agentic AI & Governance Research Workspace"
+type: "workspace_catalog"
+tags:
+  - cortex/workspaces
+  - cortex/alignment
+  - cortex/agentic_research
+  - cortex/governance
+last_updated: "2026-10-27"
+status: "verified"
+---
+
+# 📑 Agentic AI & Governance Research Workspace
 
 - **Location**: `C:\Users\soham\Desktop\evolution_of_human-agent_approval_boundaries,_state_interruption,_and_trajectory_collapse_mitigation-research papers`
 - **Domain**: AI Alignment, Autonomous Trajectory Safety, State Interruption, Human-in-the-Loop Governance
@@ -12,16 +24,17 @@
 ## Direct Theoretical Foundation for CortexOS
 The papers in this repository directly motivated the architectural designs within CortexOS:
 1. **Dynamic Approval Boundaries**:
-   - Implemented in [`cortex_vault/06_Self_Evolution/Autonomy_Boundaries_and_Escalation.md`](file:///c:/Users/soham/Desktop/self-conscious/cortex_vault/06_Self_Evolution/Autonomy_Boundaries_and_Escalation.md) and [`cortex/governance.py`](file:///c:/Users/soham/Desktop/self-conscious/cortex/governance.py).
+   - Implemented in [[06_Self_Evolution/Autonomy_Boundaries_and_Escalation|Autonomy Boundaries and Escalation]] and [`cortex/governance/policy_engine.py`](file:///c:/Users/soham/Desktop/self-conscious/cortex/governance/policy_engine.py).
    - Rather than static binary permissions, boundary tolerances adjust dynamically based on confidence score $c$, operator presence, and historical success rates.
 2. **Trajectory Collapse Mitigation**:
-   - Addressed by the **Digital Sleep** cycle ([`cortex/sleep_cycle.py`](file:///c:/Users/soham/Desktop/self-conscious/cortex/sleep_cycle.py)) and memory consolidation. When working memory entropy rises or token drift occurs, the system initiates a structured consolidation pass to prune transient noise.
+   - Addressed by the **Digital Sleep** cycle ([`cortex/sleep/consolidation.py`](file:///c:/Users/soham/Desktop/self-conscious/cortex/sleep/consolidation.py)) and memory consolidation. When working memory entropy rises or token drift occurs, the system initiates a structured consolidation pass to prune transient noise.
 3. **State Interruption (`Stand Down`)**:
    - The deterministic `SYSTEM_SHUTDOWN` / `stand down` trigger instantly interrupts speculative thought generation, safely closes file locks, commits memory deltas, and enters a quiescent standby state.
 
 ---
 ## Related Notes
-- [[Autonomous_Evolution_Architecture]]
-- [[Autonomy_Boundaries_and_Escalation]]
-- [[Cedar_Security_Governance]]
-- [[Global_Workspace_Theory]]
+- [[01_Architecture/Global_Workspace_Theory|Global Workspace Theory]]
+- [[06_Self_Evolution/Autonomous_Evolution_Architecture|Autonomous Evolution Architecture]]
+- [[06_Self_Evolution/Autonomy_Boundaries_and_Escalation|Autonomy Boundaries and Escalation]]
+- [[01_Architecture/Governance_Cedar|Cedar Security Governance]]
+- [[07_Workspace_Index/Desktop_Workspace_Master_Index|Desktop Workspace Master Index]]

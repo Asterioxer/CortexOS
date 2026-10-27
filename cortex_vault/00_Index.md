@@ -16,7 +16,9 @@ Welcome to the **CortexOS Ground-Truth Knowledge Substrate**. This vault serves 
 ## 🗺️ Map of Content (MOC)
 
 ### 1. [[01_Architecture/System_Architecture|System Architecture & Runtime]]
+- [[01_Architecture/Global_Workspace_Theory|Global Workspace Theory & The 9-Stage Cognitive Pipeline]]
 - [[01_Architecture/System_Architecture|Core 9-Stage Cognitive Pipeline]]
+- [[01_Architecture/Local_Ollama_Inference_Substrate|Local Ollama Inference Substrate (Zero-Cloud GPU Accelerated)]]
 - [[01_Architecture/Memory_Substrate_4Tier|4-Tier Memory Substrate (WAL, Vector LoRA, Bi-Temporal Kùzu, Working Memory)]]
 - [[01_Architecture/Autonomous_Daemons|Autonomous Supervisors & Daemons]]
 - [[01_Architecture/Embodiment_Somatosensory|Embodiment & Hardware Somatosensory Actions]]
@@ -60,11 +62,22 @@ Welcome to the **CortexOS Ground-Truth Knowledge Substrate**. This vault serves 
 
 ### 7. [[07_Workspace_Index/Desktop_Workspace_Master_Index|Desktop Workspaces & Project Catalogs]]
 - [[07_Workspace_Index/Desktop_Workspace_Master_Index|Desktop Workspace Master Index (48 Local Projects Directory)]]
-- [[07_Workspace_Index/Voice_and_Speech_Lab|Voice and Speech Lab Workspace]]
+- [[07_Workspace_Index/CortexOS_Self_Evolution|CortexOS Self Evolution Workspace]]
+- [[07_Workspace_Index/NL_to_SQL_Assistant|NL-to-SQL Assistant & Guardrailed Agent Workspace]]
+- [[07_Workspace_Index/XAI_Explainable_AI|Explainable AI (XAI) & Model Interpretability Workspace]]
+- [[07_Workspace_Index/Ollama_Testing_and_FineTuning|Ollama Testing, LoRA Fine-Tuning & Custom LLM Workspace]]
+- [[07_Workspace_Index/Discovery_AI_Agent|Discovery AI Agent (CrewAI Academic Researcher) Workspace]]
+- [[07_Workspace_Index/Deepthought_Culture_MultiAgent|DeepThought Culture Multi-Agent Intelligence Workspace]]
+- [[07_Workspace_Index/Multi_Model_Agent_Router|Multi-Model Agent Router Workspace]]
 - [[07_Workspace_Index/Local_LLM_Streaming_Qwen|Local LLM Streaming (Qwen / Llama.cpp) Workspace]]
+- [[07_Workspace_Index/Voice_and_Speech_Lab|Voice and Speech Lab Workspace]]
+- [[07_Workspace_Index/Agentic_AI_and_Governance_Research|Agentic AI & Governance Research Workspace]]
+- [[07_Workspace_Index/HanuAI_Tasks|HanuAI Tasks & Analytics Workspace]]
 - [[07_Workspace_Index/Blockchain_and_Web3_Contracts|Blockchain, Smart Contracts & Web3 Workspace]]
 - [[07_Workspace_Index/Quantitative_Trading_and_Signals|Quantitative Trading & Predictive Signals Workspace]]
-- [[07_Workspace_Index/Agentic_AI_and_Governance_Research|Agentic AI & Governance Research Workspace]]
+- [[07_Workspace_Index/Workout_Tracker_FullStack|Workout & Health Tracker Full-Stack Workspace]]
+- [[07_Workspace_Index/SpringBoot_ECommerce_Suite|Spring Boot 3 E-Commerce Suite & Java Enterprise Workspace]]
+- [[07_Workspace_Index/Docker_DevOps_and_Infra|Docker, DevOps & Big Data Infrastructure Workspace]]
 
 ---
 > [!NOTE] Anti-Hallucination Mandate

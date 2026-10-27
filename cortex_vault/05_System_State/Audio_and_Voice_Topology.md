@@ -19,14 +19,17 @@ Authoritative ground-truth topology for the somatosensory audio perception pipel
 - **Default Sample Rate**: `48,000 Hz` / 16-bit PCM for WebSockets; `24,000 Hz` MP3 MPEG for streamed neural TTS.
 
 ## 🗣️ Neural Voice Engine Personas
-CortexOS maps distinct cognitive perspectives to verified Microsoft Edge neural voice models with single-flight mutex serialization to prevent overlapping audio:
+CortexOS maps distinct cognitive perspectives to verified Microsoft Edge neural voice models and local SAPI5 fallbacks with single-flight mutex serialization to prevent overlapping audio:
 
-| Persona | Voice Model Identifier | Frequency & Tone | Cognitive Perspective |
+| Persona | Voice Model Identifier | Frequency & Tone | Cognitive Role / Trigger |
 |---|---|---|---|
-| **`JARVIS`** | `en-GB-RyanNeural` | Baritone, authoritative, precise | Executive & Primary Greeting / Goodbye |
-| **`EDITH`** | `en-GB-SoniaNeural` | Crisp, rapid, analytical | `Analytic` Specialist Agent |
-| **`GUY`** | `en-US-GuyNeural` | Conversational, direct, pragmatic | `Pragmatic` Specialist Agent |
-| **`FRIDAY`** | `en-US-JennyNeural` | Measured, cautious, warm | `Cautious` Specialist Agent |
+| **`JARVIS`** | `en-GB-RyanNeural` / SAPI5 David | Baritone, authoritative, precise | Primary Session Greeting (`[ 👋 Greet ]`) & Shutdown Goodbye (`[ 🛑 STAND DOWN ]`) |
+| **`GUY`** | `en-US-GuyNeural` | Conversational, direct, pragmatic | `Pragmatic` Specialist & Pair Programming Copilot |
+| **`EDITH`** | `en-GB-SoniaNeural` | Crisp, rapid, analytical | `Analytic` Specialist, Cartography Scans & Telemetry |
+| **`FRIDAY`** | `en-US-JennyNeural` | Measured, cautious, warm | `Cautious` Specialist & Security Governance Alerts |
+| **`CHRISTOPHER`**| `en-US-ChristopherNeural`| Deep studio announcer | Deep reasoning & algorithmic proofs |
+| **`NEERJA`** | `en-IN-NeerjaNeural` | Clear Indian-English tone | Conversational alternate |
+| **`JENNY`** | `en-US-JennyMultilingualNeural` | Warm, expressive | Companion dialogue |
 
 ## 🛑 Sub-10ms Barge-In Mechanism
 When the operator speaks or presses the microphone:
