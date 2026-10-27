@@ -1,4 +1,15 @@
-# Desktop Workspace Master Index
+---
+title: "Desktop Workspace Master Index"
+type: "workspace_catalog"
+tags:
+  - cortex/workspaces
+  - cortex/desktop
+  - cortex/projects
+last_updated: "2026-10-27"
+status: "active"
+---
+
+# 📁 Desktop Workspace Master Index
 
 This catalog indexes all 48 local projects situated within `C:\Users\soham\Desktop`. CortexOS leverages this registry for deterministic project switching (`open project <name>`), contextual pair programming, and automated workspace inspection.
 
@@ -41,6 +52,7 @@ This catalog indexes all 48 local projects situated within `C:\Users\soham\Deskt
 ---
 
 ## Related Notes
+- [[00_Index|CortexOS Master Knowledge Vault (Root MOC)]]
 - [[Filesystem_and_Workspaces]]
 - [[Trigger_Registry]]
 - [[Toolchains_and_Compilers]]

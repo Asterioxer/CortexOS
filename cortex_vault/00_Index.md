@@ -58,6 +58,14 @@ Welcome to the **CortexOS Ground-Truth Knowledge Substrate**. This vault serves 
 - [[06_Self_Evolution/Deterministic_Trigger_Matrix|Deterministic Trigger & Action Execution Matrix]]
 - [[06_Self_Evolution/Autonomy_Boundaries_and_Escalation|Autonomy Boundaries, Cedar Policies & Escalation Matrix]]
 
+### 7. [[07_Workspace_Index/Desktop_Workspace_Master_Index|Desktop Workspaces & Project Catalogs]]
+- [[07_Workspace_Index/Desktop_Workspace_Master_Index|Desktop Workspace Master Index (48 Local Projects Directory)]]
+- [[07_Workspace_Index/Voice_and_Speech_Lab|Voice and Speech Lab Workspace]]
+- [[07_Workspace_Index/Local_LLM_Streaming_Qwen|Local LLM Streaming (Qwen / Llama.cpp) Workspace]]
+- [[07_Workspace_Index/Blockchain_and_Web3_Contracts|Blockchain, Smart Contracts & Web3 Workspace]]
+- [[07_Workspace_Index/Quantitative_Trading_and_Signals|Quantitative Trading & Predictive Signals Workspace]]
+- [[07_Workspace_Index/Agentic_AI_and_Governance_Research|Agentic AI & Governance Research Workspace]]
+
 ---
 > [!NOTE] Anti-Hallucination Mandate
 > Whenever CortexOS processes a prompt or cognitive tick, `VaultRAG` queries this vault to inject canonical, verifiable context before generation. If a claim contradicts this vault, the vault takes precedence.

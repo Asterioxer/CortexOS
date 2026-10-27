@@ -34,7 +34,7 @@ Authoritative master catalog of exact, deterministic triggers recognized by Cort
   - `open project <project_name>`
   - `switch to project <project_name>`
   - `open folder <project_name>`
-- **Cataloged Workspaces**: Matches against the 48 desktop directories documented in [[07_Workspace_Index/00_Index|Desktop Workspace Master Index]] and [[05_System_State/Filesystem_and_Workspaces|Filesystem & Workspaces Map]].
+- **Cataloged Workspaces**: Matches against the 48 desktop directories documented in [[07_Workspace_Index/Desktop_Workspace_Master_Index|Desktop Workspace Master Index]] and [[05_System_State/Filesystem_and_Workspaces|Filesystem & Workspaces Map]].
 - **Action**: Launches VS Code directly into the resolved directory (e.g. `C:\Users\soham\Desktop\voice-lab`, `qwen3.6-setup-streaming`, `HanuAI_Tasks`).
 
 ## 4. Grounded Application Launch Triggers

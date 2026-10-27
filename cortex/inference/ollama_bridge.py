@@ -304,7 +304,7 @@ class OllamaBridge:
                         trigger_type="PROJECT_SWITCH",
                         action_name="switch_project",
                         parameters=params,
-                        grounded_doc="07_Workspace_Index/00_Index.md",
+                        grounded_doc="07_Workspace_Index/Desktop_Workspace_Master_Index.md",
                         description=thought
                     )
                     action_res = await trigger_router.execute(match)
